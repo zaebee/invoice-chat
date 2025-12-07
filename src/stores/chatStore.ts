@@ -53,13 +53,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Setup listeners once on hydration
         get().setupBackgroundSync();
 
+        let loadedSessions: ChatSession[] = [];
+
+        // 1. Try IDB first (preferred source of truth)
         try {
-            const storedSessions = await dbService.getAllSessions();
-            set({ sessions: storedSessions, isHydrated: true });
+            loadedSessions = await dbService.getAllSessions();
         } catch (e) {
-            console.error("Hydration failed", e);
-            set({ isHydrated: true }); // Mark as hydrated anyway so we don't block
+            console.error("IDB Hydration failed", e);
         }
+
+        // 2. If IDB is empty/failed, try LocalStorage Backup
+        if (loadedSessions.length === 0) {
+            const backup = dbService.loadBackup();
+            if (backup.length > 0) {
+                console.log("Restoring sessions from backup");
+                loadedSessions = backup;
+            }
+        }
+
+        set({ sessions: loadedSessions, isHydrated: true });
     },
 
     setupBackgroundSync: () => {
@@ -227,6 +239,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     newSessions.push(newSession);
                 }
                 
+                // Sync Backup
+                setTimeout(() => dbService.saveBackup(newSessions), 0);
+
                 return {
                     sessions: newSessions,
                     activeSessionId: topicId,
@@ -286,6 +301,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                                 newSessions[sessionIndex] = updatedSession;
                                 
                                 dbService.saveSession(updatedSession);
+                                dbService.saveBackup(newSessions); // Sync Backup
                                 
                                 return { sessions: newSessions };
                             });
@@ -294,7 +310,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         }
                     };
                     
-                    eventSource.onerror = (err) => {
+                    eventSource.onerror = () => {
                         // Downgrade to warning as this is expected in some environments (CORS/Offline)
                         // Close connection to prevent retry loop spam in console
                         eventSource.close();
@@ -337,6 +353,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const newSessions = state.sessions.map(s => s.id === sessionId ? updatedSession : s);
 
             dbService.saveSession(updatedSession);
+            dbService.saveBackup(newSessions);
+            
             return { sessions: newSessions };
         });
     },
@@ -348,6 +366,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const newActive = state.activeSessionId === sessionId ? null : state.activeSessionId;
             
             dbService.deleteSession(sessionId);
+            dbService.saveBackup(newSessions);
+
             return { sessions: newSessions, activeSessionId: newActive };
         });
     },
@@ -366,6 +386,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             newSessions[sessionIdx] = newSession;
             
             dbService.saveSession(newSession);
+            dbService.saveBackup(newSessions);
+
             return { sessions: newSessions };
         });
     },
@@ -381,6 +403,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             newSessions[sessionIdx] = newSession;
             
             dbService.saveSession(newSession);
+            dbService.saveBackup(newSessions);
+
             return { sessions: newSessions };
         });
     },
@@ -412,6 +436,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             newSessions[sessionIdx] = newSession;
 
             dbService.saveSession(newSession);
+            dbService.saveBackup(newSessions);
 
             return { sessions: newSessions };
         });
@@ -449,6 +474,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
 
         set({ sessions: updatedSessions });
+        dbService.saveBackup(updatedSessions);
         
         if (updatedSession) {
             await dbService.saveSession(updatedSession);
@@ -498,6 +524,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
 
         set({ sessions: updatedSessions });
+        dbService.saveBackup(updatedSessions);
         
         if (updatedSession) {
             await dbService.saveSession(updatedSession);
