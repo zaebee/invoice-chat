@@ -293,7 +293,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         }
                     };
                     
-                    eventSource.onerror = (err) => {
+                    eventSource.onerror = () => {
                         // Downgrade to warning as this is expected in some environments (CORS/Offline)
                         // Close connection to prevent retry loop spam in console
                         eventSource.close();

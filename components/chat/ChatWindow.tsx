@@ -17,7 +17,6 @@ import { InvoicePdf } from '../PdfDocument';
 import { ChatContextHeader } from './ChatContextHeader';
 import { ChatContextMobile } from './ChatContextMobile';
 import { ChatMessageList } from './ChatMessageList';
-import { StatusBadge } from './StatusBadge';
 
 interface ChatWindowProps {
     chat: ChatSession;

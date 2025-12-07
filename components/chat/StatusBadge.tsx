@@ -1,4 +1,3 @@
-import React from 'react';
 import { LeaseStatus, Language } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
