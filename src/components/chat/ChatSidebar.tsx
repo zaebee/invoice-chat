@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
@@ -111,7 +110,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const isFilterActive = filterStatus !== 'all' || sortBy !== 'date';
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors duration-200">
+        <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors duration-200">
             {/* SEARCH & FILTER BAR */}
             <div className="p-3 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
@@ -210,7 +209,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </div>
 
             {/* LIST */}
-            <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 relative">
+            <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 relative w-full">
                 {isLoading && sessions.length === 0 && (
                     <div className="p-8 flex flex-col items-center justify-center text-slate-400 gap-2 h-full">
                         <Loader2 className="animate-spin text-blue-500" />
@@ -233,7 +232,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 )}
 
                 {filteredSessions.length > 0 && (
-                    <div style={{ height: totalHeight, position: 'relative' }}>
+                    <div style={{ height: totalHeight, position: 'relative', width: '100%' }}>
                         {virtualItems.map((virtualItem) => {
                             const chat = filteredSessions[virtualItem.index];
                             const isActive = activeId === chat.id;
@@ -253,10 +252,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                         zIndex: isMenuOpen ? 50 : 1 
                                     }}
                                 >
-                                    <SwipeableRow onArchive={() => archiveSession(chat.id)} className="border-b border-slate-50 dark:border-slate-800">
+                                    <SwipeableRow onArchive={() => archiveSession(chat.id)} className="border-b border-slate-50 dark:border-slate-800 w-full">
                                         <div 
                                             onClick={() => onSelect(chat.id)}
-                                            className={`relative p-3 md:p-4 flex gap-3 cursor-pointer transition-all group pr-10
+                                            className={`relative p-3 md:p-4 flex gap-3 cursor-pointer transition-all group pr-10 w-full
                                                 ${isActive 
                                                     ? 'bg-blue-50/50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 shadow-inner' 
                                                     : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-4 border-l-transparent'

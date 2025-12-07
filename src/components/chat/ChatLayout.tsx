@@ -20,7 +20,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
     const navigate = useNavigate();
     const { id: routeId } = useParams<{ id: string }>();
     
-    const [mobileView, setMobileView] = useState<'list' | 'room'>('list');
+    // Initialize view based on route to prevent layout jump
+    const [mobileView, setMobileView] = useState<'list' | 'room'>(routeId ? 'room' : 'list');
     
     // Sidebar Collapse State
     const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -53,13 +54,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
         }
     }, [isHydrated, hydrate]);
     
+    // Sync mobile view with route changes
     useEffect(() => {
         if (routeId) {
-            if (isMobile) setMobileView('room');
+            setMobileView('room');
         } else {
             setMobileView('list');
         }
-    }, [routeId, isMobile]);
+    }, [routeId]);
 
     const currentActiveId = routeId || activeSessionId;
     const activeChat = sessions.find((c: ChatSession) => c.id === currentActiveId);
@@ -98,28 +100,31 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     const handleChatSelect = (chatId: string) => {
         setActiveSession(chatId);
-        if (routeId === chatId && isMobile) {
+        if (isMobile) {
             setMobileView('room');
+            // Navigate but keep history clean if possible, or just push
+            navigate(`/chat/detail/${chatId}`);
         } else {
             navigate(`/chat/detail/${chatId}`);
         }
     };
 
     const handleBackToList = () => {
+        setMobileView('list');
         navigate('/');
     };
 
     return (
-        <div className="flex h-full bg-white dark:bg-slate-900 md:rounded-xl overflow-hidden md:border border-slate-200 dark:border-slate-800 md:shadow-sm relative transition-colors duration-200">
-            <div className={`flex h-full ${
-                isMobile ? 'w-[200%]' : 'w-full'
+        <div className="flex h-full bg-white dark:bg-slate-900 md:rounded-xl overflow-hidden md:border border-slate-200 dark:border-slate-800 md:shadow-sm relative transition-colors duration-200 w-full">
+            <div className={`flex h-full flex-nowrap ${
+                isMobile ? 'w-[200%] transform' : 'w-full'
             } ${
                 isMobile && mobileView === 'room' ? '-translate-x-1/2' : 'translate-x-0'
             }`}>
 
                 {/* LEFT: Sidebar List */}
-                <div className={`flex flex-col bg-slate-50 dark:bg-slate-900 relative ${
-                    isMobile ? 'w-1/2 border-r-0' : 'w-80 border-r border-slate-200 dark:border-slate-800 shrink-0'
+                <div className={`flex flex-col bg-slate-50 dark:bg-slate-900 relative shrink-0 ${
+                    isMobile ? 'w-1/2 border-r-0 h-full' : 'w-80 border-r border-slate-200 dark:border-slate-800 h-full'
                 }`}>
                     <ChatSidebar 
                         sessions={sessions}
@@ -131,8 +136,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                 </div>
 
                 {/* MIDDLE: Chat Room */}
-                <div className={`flex flex-col bg-slate-50/30 dark:bg-slate-950 relative ${
-                    isMobile ? 'w-1/2' : 'flex-1 min-w-0'
+                <div className={`flex flex-col bg-slate-50/30 dark:bg-slate-950 relative shrink-0 ${
+                    isMobile ? 'w-1/2 h-full' : 'flex-1 min-w-0 h-full'
                 }`}>
                     {activeChat ? (
                         <ChatWindow 
@@ -144,7 +149,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                             isSidebarOpen={isSidebarOpen}
                         />
                     ) : (
-                        <div className="flex-1 h-full flex flex-col items-center justify-center gap-6 text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-950">
+                        <div className="flex-1 h-full flex flex-col items-center justify-center gap-6 text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-950 w-full">
                             {isLoading ? (
                                 <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
                                     <Loader2 className="animate-spin text-blue-500" size={48} />
@@ -171,7 +176,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                 </div>
 
                 {/* RIGHT: Context Panel (Desktop Only) */}
-                {activeChat && (
+                {activeChat && !isMobile && (
                     <RightPanel 
                         chat={activeChat}
                         leaseData={currentLeaseData}
