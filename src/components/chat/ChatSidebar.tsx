@@ -88,7 +88,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const { virtualItems, totalHeight, measureElement } = useVirtualList({
         count: filteredSessions.length,
         getScrollElement: () => listRef.current,
-        estimateHeight: useCallback(() => 90, []), 
+        estimateHeight: useCallback(() => 92, []), 
         overscan: 5
     });
 
@@ -156,28 +156,35 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                     <SwipeableRow onArchive={() => archiveSession(chat.id)} className="border-b border-slate-50">
                                         <div 
                                             onClick={() => onSelect(chat.id)}
-                                            className={`relative p-3 md:p-4 flex gap-3 cursor-pointer transition-all group pr-10
+                                            className={`relative p-3 flex gap-3 cursor-pointer transition-all group
                                                 ${isActive 
-                                                    ? 'bg-blue-50/50 border-l-4 border-l-blue-500 shadow-inner' 
+                                                    ? 'bg-blue-50/60 border-l-4 border-l-blue-500 shadow-inner' 
                                                     : 'hover:bg-slate-50 border-l-4 border-l-transparent'
                                                 }`}
                                         >
-                                            <div className="relative shrink-0 self-start">
-                                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden transition-all
+                                            <div className="relative shrink-0 self-start mt-0.5">
+                                                <div className={`w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden transition-all
                                                     ${isActive ? 'bg-blue-200 text-blue-700 ring-2 ring-white shadow-md' : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'}`}>
                                                     {chat.user.avatar ? <img src={chat.user.avatar} alt={chat.user.name} className="w-full h-full object-cover" /> : chat.user.name[0]}
                                                 </div>
-                                                <div className={`absolute bottom-0 right-0 w-3 h-3 md:w-3.5 md:h-3.5 rounded-full border-2 border-white ${chat.user.status === 'online' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
+                                                <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 rounded-full border-2 border-white ${chat.user.status === 'online' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
                                             </div>
-                                            <div className="flex-1 min-w-0 flex flex-col justify-start">
-                                                <div className="flex justify-between items-baseline mb-0.5">
-                                                    <h3 className={`font-bold text-sm truncate ${isActive ? 'text-blue-900' : 'text-slate-800'}`}>{chat.user.name}</h3>
-                                                    <span className={`text-[10px] font-medium whitespace-nowrap ml-2 ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                                            
+                                            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                                {/* Header: Name + Time */}
+                                                <div className="flex justify-between items-start">
+                                                    <h3 className={`font-bold text-sm truncate pr-1 ${isActive ? 'text-blue-900' : 'text-slate-800'}`}>
+                                                        {chat.user.name}
+                                                    </h3>
+                                                    {/* MR-7 to prevent overlap with absolute menu button */}
+                                                    <span className={`text-[10px] font-medium whitespace-nowrap mr-7 ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
                                                         {chat.lastMessageTime > 0 ? humanizeTime(chat.lastMessageTime, lang) : ''}
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <p className={`text-xs truncate max-w-[140px] md:max-w-[140px] ${isActive ? 'text-blue-700 font-medium' : 'text-slate-500 group-hover:text-slate-600'}`}>
+
+                                                {/* Message */}
+                                                <div className="flex justify-between items-center h-5">
+                                                    <p className={`text-xs truncate max-w-[85%] ${isActive ? 'text-blue-700 font-medium' : 'text-slate-500 group-hover:text-slate-600'}`}>
                                                         {chat.lastMessage}
                                                     </p>
                                                     {chat.unreadCount > 0 && (
@@ -187,20 +194,28 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                                     )}
                                                 </div>
 
+                                                {/* Summary Footer */}
                                                 {chat.reservationSummary && (
-                                                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100/80">
-                                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-medium bg-slate-100 px-2 py-0.5 rounded-md max-w-[55%]">
-                                                            <Car size={10} className="text-slate-400 shrink-0" />
+                                                    <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-slate-50">
+                                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-medium bg-slate-100/80 px-2 py-0.5 rounded max-w-[60%]">
+                                                            {chat.reservationSummary.vehicleImageUrl ? (
+                                                                <img src={chat.reservationSummary.vehicleImageUrl} alt="car" className="w-3 h-3 object-cover rounded-sm" />
+                                                            ) : (
+                                                                <Car size={10} className="text-slate-400 shrink-0" />
+                                                            )}
                                                             <span className="truncate">{chat.reservationSummary.vehicleName}</span>
                                                         </div>
+                                                        
                                                         {chat.reservationSummary.status && (
-                                                            <StatusBadge status={chat.reservationSummary.status} lang={lang} />
+                                                            <div className="transform scale-90 origin-right">
+                                                                <StatusBadge status={chat.reservationSummary.status} lang={lang} />
+                                                            </div>
                                                         )}
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {/* ACTION BUTTON */}
+                                            {/* ACTION BUTTON - Fixed Position */}
                                             <button 
                                                 data-menu-trigger="true"
                                                 onClick={(e) => {
@@ -208,8 +223,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                                     e.stopPropagation();
                                                     toggleMenu(chat.id);
                                                 }}
-                                                className={`absolute top-3 right-2 p-1.5 rounded-full transition-all z-10 
-                                                    ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                                                className={`absolute top-2.5 right-1.5 p-1.5 rounded-full transition-all z-10 
+                                                    ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}`}
                                             >
                                                 <MoreVertical size={16} />
                                             </button>

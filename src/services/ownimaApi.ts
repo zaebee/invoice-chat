@@ -1,4 +1,5 @@
 
+
 import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -89,6 +90,16 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         const trans = specs.transmission || '';
         const color = info.color || '';
 
+        // Vehicle Image Mapping
+        // Prefer small preview 's' for UI, fallback to cover
+        let vehicleImageUrl = undefined;
+        if (v.picture) {
+            const path = v.picture.cover_previews?.s || v.picture.cover;
+            if (path) {
+                vehicleImageUrl = `${AVATAR_BASE_URL}${path}`;
+            }
+        }
+
         // Time Formatting with Highlighting
         const formatTime = (timeObj: any, early: boolean, late: boolean) => {
             if (!timeObj || !timeObj.start || !timeObj.end) return '';
@@ -143,7 +154,8 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
             vehicle: {
                 name: `${brand} ${model}, ${year}`.trim(),
                 details: [body, trans, color].filter(Boolean).join(' • '),
-                plate: info.reg_number || ''
+                plate: info.reg_number || '',
+                imageUrl: vehicleImageUrl
             },
             pickup: {
                 date: r.date_from ? r.date_from.split('T')[0] : '',
