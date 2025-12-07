@@ -115,8 +115,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
             }`}>
 
                 {/* LEFT: Sidebar List */}
-                <div className={`flex flex-col bg-slate-50 relative ${
-                    isMobile ? 'w-1/2 border-r-0' : 'w-80 border-r border-slate-200 shrink-0'
+                <div className={`flex flex-col bg-slate-50 relative shrink-0 ${
+                    isMobile ? 'w-1/2 border-r-0' : 'w-80 border-r border-slate-200'
                 }`}>
                     <ChatSidebar 
                         sessions={sessions}
@@ -128,7 +128,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                 </div>
 
                 {/* MIDDLE: Chat Room */}
-                <div className={`flex flex-col bg-slate-50/30 relative ${
+                <div className={`flex flex-col bg-slate-50/30 relative shrink-0 ${
                     isMobile ? 'w-1/2' : 'flex-1 min-w-0'
                 }`}>
                     {activeChat ? (
