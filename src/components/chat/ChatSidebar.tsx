@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle } from 'lucide-react';
 import { ChatSession, Language } from '../../types';
