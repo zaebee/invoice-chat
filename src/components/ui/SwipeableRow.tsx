@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, TouchEvent } from 'react';
 import { Archive } from 'lucide-react';
 
@@ -66,7 +67,7 @@ export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onArchive,
 
             {/* Foreground Layer (Content) */}
             <div 
-                className="relative bg-white transition-transform duration-200 ease-out"
+                className="relative bg-white dark:bg-slate-900 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
