@@ -95,7 +95,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                 return (
                     <React.Fragment key={msg.id}>
                         {isDifferentDay && (
-                            <div className="flex justify-center my-4 md:my-6 sticky top-2 z-0">
+                            <div className="flex justify-center my-4 md:my-6 sticky top-2 z-30 pointer-events-none">
                                 <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 shadow-sm px-3 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm bg-white/80">
                                     {formatDateSeparator(msg.timestamp)}
                                 </span>
@@ -103,46 +103,39 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         )}
 
                         {msg.type === 'system' ? (
-                            <div className="w-full flex flex-col items-center my-4 relative px-4 animate-in fade-in zoom-in duration-300">
-                                {/* Line */}
-                                <div className="flex items-center w-full gap-4 mb-1.5 absolute top-4 left-0 px-4 md:px-12 -z-10">
+                            <div className="w-full flex flex-col items-center my-4 px-2 md:px-12 animate-in fade-in zoom-in duration-300">
+                                <div className="flex items-center w-full gap-3 mb-2">
                                     <div className="h-px bg-slate-200 flex-1"></div>
-                                    <div className="w-32 md:w-40 h-px"></div> {/* Spacer for pill */}
+                                    <div className="shrink-0">
+                                        {msg.metadata?.status && STATUS_CONFIG[msg.metadata.status] ? (
+                                            (() => {
+                                                const config = STATUS_CONFIG[msg.metadata.status!];
+                                                return (
+                                                    <div className={`px-4 py-1.5 rounded-2xl border shadow-sm flex items-center gap-2 bg-white ${config.border} ${config.text}`}>
+                                                        {config.icon}
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider">{t(config.labelKey, lang)}</span>
+                                                    </div>
+                                                );
+                                            })()
+                                        ) : (
+                                            <div className="px-3 py-1 rounded-full border border-slate-200 bg-white shadow-sm">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">System</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="h-px bg-slate-200 flex-1"></div>
-                                </div>
-                                
-                                {/* Badge */}
-                                <div className="z-10 bg-slate-50/50 px-2 mb-1">
-                                    {msg.metadata?.status && STATUS_CONFIG[msg.metadata.status] ? (
-                                        (() => {
-                                            const config = STATUS_CONFIG[msg.metadata.status!];
-                                            return (
-                                                <div className={`px-4 py-1.5 rounded-2xl border shadow-sm flex items-center gap-2 ${config.bg} ${config.border} ${config.text}`}>
-                                                    {config.icon}
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider">{t(config.labelKey, lang)}</span>
-                                                </div>
-                                            );
-                                        })()
-                                    ) : (
-                                        <div className="px-3 py-1 rounded-full border border-slate-200 bg-white shadow-sm">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">System</span>
-                                        </div>
-                                    )}
                                 </div>
 
-                                {/* Time */}
                                 <div className="mt-0.5 text-[10px] text-slate-400 font-medium">
                                     {formatShortDateStr(msg.timestamp)}, {formatTime(msg.timestamp)}
                                 </div>
 
-                                {/* Message Text */}
                                 {msg.text && (
                                     <p className="mt-1 text-xs text-slate-500 italic text-center max-w-sm">
                                         {msg.text}
                                     </p>
                                 )}
 
-                                {/* Actions (Owner Confirmation) */}
                                 {msg.metadata?.status === 'confirmation_owner' && leaseStatus !== 'confirmed' && leaseStatus !== 'rejected' && (
                                     <div className="mt-3 flex flex-col items-center z-10 w-full">
                                         {deadline && deadline.hasDeadline && !deadline.isExpired && (
