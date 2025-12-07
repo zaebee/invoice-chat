@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus } from '../../types';
 import { t } from '../../utils/i18n';
+import { STATUS_CONFIG } from './ChatUtils';
 
 interface ChatMessageListProps {
     messages: ChatMessage[];
@@ -77,8 +78,16 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         } catch { return ''; }
     };
 
+    const formatShortDateStr = (timestamp: number) => {
+         try {
+             return new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'en-US', {
+                month: 'short', day: 'numeric'
+            }).format(new Date(timestamp));
+         } catch { return ''; }
+    };
+
     return (
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 overscroll-contain">
+        <div className="flex-1 p-2 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 overscroll-contain">
             {messages.map((msg: ChatMessage, index: number) => {
                 const prevMsg = index > 0 ? messages[index - 1] : null;
                 const isDifferentDay = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
@@ -94,27 +103,60 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         )}
 
                         {msg.type === 'system' ? (
-                            <div className="flex flex-col gap-1 my-2 animate-in fade-in slide-in-from-bottom-2 duration-300 px-4 md:px-12">
-                                <div className="flex items-start gap-3 w-full">
-                                    <div className="w-full flex flex-col items-center">
-                                        <span className="text-[9px] text-slate-400 font-mono mb-1">{formatTime(msg.timestamp)}</span>
-                                        {msg.text && <p className="text-[11px] md:text-xs text-slate-500 italic text-center max-w-xs leading-snug whitespace-pre-wrap">{msg.text}</p>}
-                                        {msg.metadata?.status === 'confirmation_owner' && leaseStatus !== 'confirmed' && leaseStatus !== 'rejected' && (
-                                            <div className="mt-2 w-full flex flex-col items-center">
-                                                {deadline && deadline.hasDeadline && !deadline.isExpired && (
-                                                    <div className={`mb-2 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${deadline.isCritical ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                                        <Hourglass size={10} /> 
-                                                        {t('expires_in', lang)} {deadline.timeLeft}
-                                                    </div>
-                                                )}
-                                                <div className="flex gap-2 md:gap-3 animate-in zoom-in duration-300">
-                                                    <button onClick={onConfirm} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95"><ThumbsUp size={14} /> {t('btn_confirm', lang)}</button>
-                                                    <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-xl text-xs font-bold shadow-sm active:scale-95"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
+                            <div className="w-full flex flex-col items-center my-4 relative px-4 animate-in fade-in zoom-in duration-300">
+                                {/* Line */}
+                                <div className="flex items-center w-full gap-4 mb-1.5 absolute top-4 left-0 px-4 md:px-12 -z-10">
+                                    <div className="h-px bg-slate-200 flex-1"></div>
+                                    <div className="w-32 md:w-40 h-px"></div> {/* Spacer for pill */}
+                                    <div className="h-px bg-slate-200 flex-1"></div>
+                                </div>
+                                
+                                {/* Badge */}
+                                <div className="z-10 bg-slate-50/50 px-2 mb-1">
+                                    {msg.metadata?.status && STATUS_CONFIG[msg.metadata.status] ? (
+                                        (() => {
+                                            const config = STATUS_CONFIG[msg.metadata.status!];
+                                            return (
+                                                <div className={`px-4 py-1.5 rounded-2xl border shadow-sm flex items-center gap-2 ${config.bg} ${config.border} ${config.text}`}>
+                                                    {config.icon}
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider">{t(config.labelKey, lang)}</span>
                                                 </div>
+                                            );
+                                        })()
+                                    ) : (
+                                        <div className="px-3 py-1 rounded-full border border-slate-200 bg-white shadow-sm">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">System</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Time */}
+                                <div className="mt-0.5 text-[10px] text-slate-400 font-medium">
+                                    {formatShortDateStr(msg.timestamp)}, {formatTime(msg.timestamp)}
+                                </div>
+
+                                {/* Message Text */}
+                                {msg.text && (
+                                    <p className="mt-1 text-xs text-slate-500 italic text-center max-w-sm">
+                                        {msg.text}
+                                    </p>
+                                )}
+
+                                {/* Actions (Owner Confirmation) */}
+                                {msg.metadata?.status === 'confirmation_owner' && leaseStatus !== 'confirmed' && leaseStatus !== 'rejected' && (
+                                    <div className="mt-3 flex flex-col items-center z-10 w-full">
+                                        {deadline && deadline.hasDeadline && !deadline.isExpired && (
+                                            <div className={`mb-2 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${deadline.isCritical ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
+                                                <Hourglass size={10} /> 
+                                                {t('expires_in', lang)} {deadline.timeLeft}
                                             </div>
                                         )}
+                                        <div className="flex gap-2 md:gap-3 animate-in zoom-in duration-300">
+                                            <button onClick={onConfirm} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95"><ThumbsUp size={14} /> {t('btn_confirm', lang)}</button>
+                                            <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-xl text-xs font-bold shadow-sm active:scale-95"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         ) : (
                             <div className={`message-wrapper flex gap-2 md:gap-3 max-w-[90%] md:max-w-[70%] animate-in fade-in slide-in-from-bottom-2 duration-200 ${msg.senderId === 'me' ? 'self-end flex-row-reverse' : 'self-start'}`} data-id={msg.id} data-status={msg.status} data-sender={msg.senderId}>

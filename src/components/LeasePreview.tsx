@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LeaseData, Language } from '../types';
 import { t } from '../utils/i18n';
