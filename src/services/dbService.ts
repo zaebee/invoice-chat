@@ -6,13 +6,16 @@ const STORE_NAME = 'sessions';
 const DB_VERSION = 1;
 const BACKUP_KEY = 'ownima_chat_sessions_backup';
 
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 export const dbService = {
   open: (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
+    if (dbPromise) return dbPromise;
+
+    dbPromise = new Promise((resolve, reject) => {
       // Check if IndexedDB is supported
       if (!window.indexedDB) {
-        reject(new Error("IndexedDB not supported"));
-        return;
+        return reject(new Error("IndexedDB not supported"));
       }
 
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -25,9 +28,25 @@ export const dbService = {
         }
       };
 
-      request.onsuccess = (event) => resolve((event.target as IDBOpenDBRequest).result);
-      request.onerror = (event) => reject((event.target as IDBOpenDBRequest).error);
+      request.onsuccess = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          
+          // Handle connection closing on version change (e.g. multi-tab)
+          db.onversionchange = () => {
+              db.close();
+              dbPromise = null;
+          };
+          
+          resolve(db);
+      };
+      
+      request.onerror = (event) => {
+          dbPromise = null;
+          reject((event.target as IDBOpenDBRequest).error);
+      };
     });
+    
+    return dbPromise;
   },
 
   getAllSessions: async (): Promise<ChatSession[]> => {
@@ -84,13 +103,14 @@ export const dbService = {
   saveBackup: (sessions: ChatSession[]) => {
     try {
       // Create lightweight backup (exclude messages content to save space)
-      const minimal = sessions.map(s => ({
-        ...s,
-        messages: [] // Empty messages array for list view
-      }));
+      const minimal = sessions.map(s => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { messages, ...rest } = s;
+          return { ...rest, messages: [] };
+      });
       localStorage.setItem(BACKUP_KEY, JSON.stringify(minimal));
     } catch (e) {
-      console.warn("LocalStorage backup failed", e);
+      console.warn("LocalStorage backup failed (quota?)", e);
     }
   },
 

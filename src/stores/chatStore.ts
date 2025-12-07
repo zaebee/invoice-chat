@@ -1,5 +1,4 @@
 
-
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
@@ -54,25 +53,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Setup listeners once on hydration
         get().setupBackgroundSync();
 
-        let loadedSessions: ChatSession[] = [];
+        // 1. FAST PATH: Load from LocalStorage Backup immediately
+        // This ensures the list appears instantly on mobile/slow devices
+        const backup = dbService.loadBackup();
+        if (backup.length > 0) {
+            set({ sessions: backup });
+        }
 
-        // 1. Try IDB first (preferred source of truth)
+        // 2. SLOW PATH: Load full data from IndexedDB (Source of Truth)
         try {
-            loadedSessions = await dbService.getAllSessions();
+            const idbSessions = await dbService.getAllSessions();
+            if (idbSessions.length > 0) {
+                // If IDB has data, it overwrites the backup (contains full messages)
+                set({ sessions: idbSessions, isHydrated: true });
+                
+                // Sync backup with latest truth
+                dbService.saveBackup(idbSessions);
+            } else {
+                // If IDB is empty but backup existed, we keep backup state
+                // If both empty, we are clean
+                set({ isHydrated: true });
+            }
         } catch (e) {
             console.error("IDB Hydration failed", e);
+            // Fallback: We still have the backup loaded if it existed
+            set({ isHydrated: true });
         }
-
-        // 2. If IDB is empty/failed, try LocalStorage Backup
-        if (loadedSessions.length === 0) {
-            const backup = dbService.loadBackup();
-            if (backup.length > 0) {
-                console.log("Restoring sessions from backup");
-                loadedSessions = backup;
-            }
-        }
-
-        set({ sessions: loadedSessions, isHydrated: true });
     },
 
     setupBackgroundSync: () => {
