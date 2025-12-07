@@ -1,3 +1,5 @@
+
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle } from 'lucide-react';
 import { ChatSession, Language } from '../../types';
@@ -189,7 +191,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                                 {chat.reservationSummary && (
                                                     <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100/80">
                                                         <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-medium bg-slate-100 px-2 py-0.5 rounded-md max-w-[55%]">
-                                                            <Car size={10} className="text-slate-400 shrink-0" />
+                                                            {chat.reservationSummary.vehicleImageUrl ? (
+                                                                <img src={chat.reservationSummary.vehicleImageUrl} alt="car" className="w-3 h-3 object-cover rounded-sm" />
+                                                            ) : (
+                                                                <Car size={10} className="text-slate-400 shrink-0" />
+                                                            )}
                                                             <span className="truncate">{chat.reservationSummary.vehicleName}</span>
                                                         </div>
                                                         {chat.reservationSummary.status && (

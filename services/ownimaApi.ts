@@ -1,3 +1,5 @@
+
+
 import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -10,7 +12,7 @@ const API_V1_ROOT = BASE_RESERVATION_URL.replace(/\/reservation\/?$/, '');
 const INVOICE_ENDPOINT = `${API_V1_ROOT}/finance/invoice`;
 const OWNER_PROFILE_ENDPOINT = `${API_V1_ROOT}/rider/owner`;
 const CHAT_BASE_URL = 'https://stage.ownima.com'; // Dedicated Chat/Ntfy domain
-const AVATAR_BASE_URL = 'https://stage.ownima.com';
+const ASSET_BASE_URL = 'https://stage.ownima.com';
 
 interface OwnerProfile {
     id: string;
@@ -88,6 +90,16 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         const trans = specs.transmission || '';
         const color = info.color || '';
 
+        // Vehicle Image Mapping
+        // Prefer small preview 's' for UI, fallback to cover
+        let vehicleImageUrl = undefined;
+        if (v.picture) {
+            const path = v.picture.cover_previews?.s || v.picture.cover;
+            if (path) {
+                vehicleImageUrl = `${ASSET_BASE_URL}${path}`;
+            }
+        }
+
         // Time Formatting with Highlighting
         const formatTime = (timeObj: any, early: boolean, late: boolean) => {
             if (!timeObj || !timeObj.start || !timeObj.end) return '';
@@ -130,7 +142,7 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
 
         // Avatar Mapping
         const avatarPath = rider.avatar;
-        const avatarUrl = avatarPath ? `${AVATAR_BASE_URL}${avatarPath}` : undefined;
+        const avatarUrl = avatarPath ? `${ASSET_BASE_URL}${avatarPath}` : undefined;
 
         return {
             id: r.id, // Store real UUID for API calls
@@ -142,7 +154,8 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
             vehicle: {
                 name: `${brand} ${model}, ${year}`.trim(),
                 details: [body, trans, color].filter(Boolean).join(' • '),
-                plate: info.reg_number || ''
+                plate: info.reg_number || '',
+                imageUrl: vehicleImageUrl
             },
             pickup: {
                 date: r.date_from ? r.date_from.split('T')[0] : '',

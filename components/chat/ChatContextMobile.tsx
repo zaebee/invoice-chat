@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { Car, CalendarClock, Hourglass } from 'lucide-react';
 import { LeaseData, Language } from '../../types';
@@ -25,8 +27,12 @@ export const ChatContextMobile: React.FC<ChatContextMobileProps> = ({ leaseData,
             {/* Row 1: Vehicle & Price */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 min-w-0">
-                    <div className="p-1.5 bg-white rounded-lg border border-slate-200 text-slate-500 shrink-0 shadow-sm">
-                        <Car size={14} />
+                    <div className="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 shrink-0 shadow-sm bg-white overflow-hidden flex items-center justify-center">
+                        {leaseData.vehicle.imageUrl ? (
+                            <img src={leaseData.vehicle.imageUrl} alt={leaseData.vehicle.name} className="w-full h-full object-cover" />
+                        ) : (
+                            <Car size={14} />
+                        )}
                     </div>
                     <div className="flex flex-col min-w-0">
                         <span className="text-xs font-bold text-slate-800 truncate leading-tight">

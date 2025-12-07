@@ -63,6 +63,7 @@ export interface LeaseData {
     name: string; // e.g. BMW X1, 2017
     details: string; // e.g. LAND • MOTORCYCLE...
     plate: string;
+    imageUrl?: string; // Vehicle Photo URL
   };
   pickup: {
     date: string;
@@ -159,6 +160,7 @@ export interface ChatSession {
   reservationSummary?: {
     vehicleName: string;
     plateNumber: string;
+    vehicleImageUrl?: string; // Cached image
     status: LeaseStatus;
     price: number;
     deadline?: number; // Cached deadline

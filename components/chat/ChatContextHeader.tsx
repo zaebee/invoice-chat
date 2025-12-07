@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { Car, CalendarClock, Hourglass } from 'lucide-react';
 import { LeaseData, Language } from '../../types';
@@ -27,8 +29,12 @@ export const ChatContextHeader: React.FC<ChatContextHeaderProps> = ({ leaseData,
             <div className="px-4 pb-3 flex justify-between items-start gap-4">
                 <div className="flex items-start gap-3 min-w-0">
                     <div className="relative shrink-0 pt-0.5">
-                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm flex items-center justify-center text-slate-500">
-                            <Car size={20} strokeWidth={1.5} />
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 overflow-hidden">
+                            {leaseData.vehicle.imageUrl ? (
+                                <img src={leaseData.vehicle.imageUrl} alt={leaseData.vehicle.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <Car size={20} strokeWidth={1.5} />
+                            )}
                         </div>
                         <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 md:w-4 md:h-4 rounded-full border-[3px] border-white ${statusConfig.accent}`}></div>
                     </div>
