@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -8,6 +7,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { ChatSidebar } from './ChatSidebar';
 import { ChatWindow } from './ChatWindow';
 import { RightPanel } from './RightPanel';
+import { t } from '../../utils/i18n';
 
 interface ChatLayoutProps {
     leaseData: LeaseData;
@@ -83,7 +83,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                     total: activeChat.reservationSummary.price
                 },
                 pickup: { ...INITIAL_LEASE.pickup, date: '' }, 
-                dropoff: { ...INITIAL_LEASE.dropoff, date: '' }
+                dropoff: { ...INITIAL_LEASE.dropoff, date: '' },
+                deadline: activeChat.reservationSummary.deadline // Use cached deadline
             };
         }
         return { ...INITIAL_LEASE, reservationId: 'Loading...' };
@@ -143,16 +144,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                             {isLoading ? (
                                 <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
                                     <Loader2 className="animate-spin text-blue-500" size={48} />
-                                    <p className="text-sm font-medium text-slate-500">Loading conversation...</p>
+                                    <p className="text-sm font-medium text-slate-500">{t('loading_conversation', lang)}</p>
                                 </div>
                             ) : (
                                 <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center mx-4">
                                     <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 mx-auto mb-4 border border-blue-100 shadow-sm">
                                         <MessageSquare size={32} />
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Select a Conversation</h3>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-2">{t('select_conversation', lang)}</h3>
                                     <p className="text-slate-500 text-sm mb-6">
-                                        Choose a chat from the sidebar to view details, manage lease agreements, and communicate with renters.
+                                        {t('select_conversation_desc', lang)}
                                     </p>
                                     <div className="flex gap-2 justify-center">
                                         <div className="h-2 w-2 rounded-full bg-slate-200"></div>

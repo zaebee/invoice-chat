@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Eraser, Check } from 'lucide-react';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -10,6 +9,7 @@ interface SignaturePadProps {
     onClear: () => void;
     savedLabel?: string;
     clearLabel?: string;
+    placeholderText?: string;
 }
 
 const SignaturePad: React.FC<SignaturePadProps> = ({ 
@@ -19,6 +19,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
     onClear,
     savedLabel = "Saved",
     clearLabel = "Clear",
+    placeholderText = "Sign Here"
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -136,7 +137,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
                 />
                 {!hasContent && !value && (
                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-slate-400 text-sm font-bold uppercase select-none">
-                        Sign Here
+                        {placeholderText}
                      </div>
                 )}
             </div>

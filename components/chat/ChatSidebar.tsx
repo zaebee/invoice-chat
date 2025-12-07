@@ -1,10 +1,9 @@
-
-import React, { useState, useRef, useCallback } from 'react';
-import { Search, Sparkles, Loader2, Car } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle } from 'lucide-react';
 import { ChatSession, Language } from '../../types';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import { SwipeableRow } from '../ui/SwipeableRow';
-import { StatusBadge } from './ChatUtils';
+import { StatusBadge } from './StatusBadge';
 import { t } from '../../utils/i18n';
 import { humanizeTime } from '../../utils/dateUtils';
 import { useChatStore } from '../../stores/chatStore';
@@ -21,14 +20,61 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     sessions, activeId, isLoading, onSelect, lang 
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
-    const { archiveSession } = useChatStore();
+    const menuRef = useRef<HTMLDivElement>(null);
+    const { archiveSession, deleteSession, markAsRead, markAsUnread } = useChatStore();
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            
+            // Critical: Ignore clicks on the toggle button itself to prevent conflict with onClick
+            if (target.closest('[data-menu-trigger="true"]')) {
+                return;
+            }
+
+            if (menuRef.current && !menuRef.current.contains(target)) {
+                setActiveMenuId(null);
+            }
+        };
+        
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
             onSelect(searchQuery.trim());
             setSearchQuery('');
+        }
+    };
+
+    const toggleMenu = (id: string) => {
+        setActiveMenuId(prev => prev === id ? null : id);
+    };
+
+    const handleMenuAction = (e: React.MouseEvent, action: 'archive' | 'delete' | 'read' | 'unread', id: string) => {
+        e.stopPropagation();
+        setActiveMenuId(null);
+        
+        switch (action) {
+            case 'archive':
+                archiveSession(id);
+                break;
+            case 'delete':
+                if (confirm(t('confirm_delete_chat', lang))) {
+                    deleteSession(id);
+                }
+                break;
+            case 'read':
+                markAsRead(id);
+                break;
+            case 'unread':
+                markAsUnread(id);
+                break;
         }
     };
 
@@ -75,13 +121,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 {isLoading && sessions.length === 0 && (
                     <div className="p-8 flex flex-col items-center justify-center text-slate-400 gap-2 h-full">
                         <Loader2 className="animate-spin text-blue-500" />
-                        <span className="text-xs">Loading chats...</span>
+                        <span className="text-xs">{t('loading_chats', lang)}</span>
                     </div>
                 )}
                 
                 {filteredSessions.length === 0 && !isLoading && (
                     <div className="p-8 text-center text-xs text-slate-400 italic h-full flex items-center justify-center">
-                        No active chats found.
+                        {t('no_active_chats', lang)}
                     </div>
                 )}
 
@@ -90,6 +136,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         {virtualItems.map((virtualItem) => {
                             const chat = filteredSessions[virtualItem.index];
                             const isActive = activeId === chat.id;
+                            const isMenuOpen = activeMenuId === chat.id;
 
                             return (
                                 <div
@@ -101,13 +148,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                         top: 0,
                                         left: 0,
                                         width: '100%',
-                                        transform: `translateY(${virtualItem.offset}px)`
+                                        transform: `translateY(${virtualItem.offset}px)`,
+                                        zIndex: isMenuOpen ? 50 : 1 
                                     }}
                                 >
                                     <SwipeableRow onArchive={() => archiveSession(chat.id)} className="border-b border-slate-50">
                                         <div 
                                             onClick={() => onSelect(chat.id)}
-                                            className={`p-3 md:p-4 flex gap-3 cursor-pointer transition-all group
+                                            className={`relative p-3 md:p-4 flex gap-3 cursor-pointer transition-all group pr-10
                                                 ${isActive 
                                                     ? 'bg-blue-50/50 border-l-4 border-l-blue-500 shadow-inner' 
                                                     : 'hover:bg-slate-50 border-l-4 border-l-transparent'
@@ -145,13 +193,61 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                                             <span className="truncate">{chat.reservationSummary.vehicleName}</span>
                                                         </div>
                                                         {chat.reservationSummary.status && (
-                                                            <StatusBadge status={chat.reservationSummary.status} />
+                                                            <StatusBadge status={chat.reservationSummary.status} lang={lang} />
                                                         )}
                                                     </div>
                                                 )}
                                             </div>
+
+                                            {/* ACTION BUTTON */}
+                                            <button 
+                                                data-menu-trigger="true"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    toggleMenu(chat.id);
+                                                }}
+                                                className={`absolute top-3 right-2 p-1.5 rounded-full transition-all z-10 
+                                                    ${isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                                            >
+                                                <MoreVertical size={16} />
+                                            </button>
                                         </div>
                                     </SwipeableRow>
+
+                                    {/* DROPDOWN MENU */}
+                                    {isMenuOpen && (
+                                        <div 
+                                            ref={menuRef} 
+                                            className="absolute top-10 right-4 w-44 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-black/5"
+                                        >
+                                            <div className="p-1 space-y-0.5">
+                                                {chat.unreadCount > 0 ? (
+                                                    <button onClick={(e) => handleMenuAction(e, 'read', chat.id)} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                                                        <CheckCircle size={14} className="text-slate-400" />
+                                                        {t('menu_mark_read', lang)}
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={(e) => handleMenuAction(e, 'unread', chat.id)} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                                                        <Mail size={14} className="text-slate-400" />
+                                                        {t('menu_mark_unread', lang)}
+                                                    </button>
+                                                )}
+                                                
+                                                <button onClick={(e) => handleMenuAction(e, 'archive', chat.id)} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                                                    <Archive size={14} className="text-slate-400" />
+                                                    {t('btn_archive', lang)}
+                                                </button>
+                                                
+                                                <div className="my-1 border-t border-slate-100"></div>
+                                                
+                                                <button onClick={(e) => handleMenuAction(e, 'delete', chat.id)} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                    <Trash2 size={14} />
+                                                    {t('btn_delete', lang)}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

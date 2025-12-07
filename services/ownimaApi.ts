@@ -1,5 +1,3 @@
-
-
 import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -140,6 +138,7 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
             status: status,
             source: humanizeSource(r.humanized?.source),
             createdDate: r.created_date ? r.created_date.split('T').join(' ').slice(0, 16) : '',
+            deadline: r.deadline_timestamp ? r.deadline_timestamp * 1000 : undefined, // Convert Sec -> Ms
             vehicle: {
                 name: `${brand} ${model}, ${year}`.trim(),
                 details: [body, trans, color].filter(Boolean).join(' • '),
@@ -223,6 +222,7 @@ const getMockLease = (id: string): Partial<LeaseData> => ({
     status: 'pending',
     source: 'OFFLINE_DEMO',
     createdDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    deadline: Date.now() + 7200000, // +2 hours for mock testing
     vehicle: { name: 'Demo BMW X1', details: 'SUV • Automatic', plate: 'DEMO-01' },
     pickup: { date: new Date().toISOString().split('T')[0], time: '10:00', fee: 0 },
     dropoff: { date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0], time: '10:00', fee: 0 },

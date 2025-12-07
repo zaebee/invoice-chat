@@ -1,5 +1,3 @@
-
-
 import { Language } from '../types';
 
 export type TranslationKey =
@@ -92,6 +90,7 @@ export type TranslationKey =
   | 'btn_clear'
   | 'btn_save_sign'
   | 'msg_sign_saved'
+  | 'lbl_sign_here'
   // Login
   | 'login_title'
   | 'login_desc'
@@ -107,7 +106,7 @@ export type TranslationKey =
   | 'mobile_editor_tab'
   | 'mobile_preview_tab'
   | 'open_shareable_link'
-  // Lease Preview
+  // Lease Preview HTML
   | 'lp_lease_agreement'
   | 'lp_reservation_id'
   | 'lp_source'
@@ -134,12 +133,74 @@ export type TranslationKey =
   | 'lp_passport'
   | 'lp_pickup_fee'
   | 'lp_return_fee'
-  // Chat
+  // Chat General
   | 'chat_search'
   | 'chat_type_message'
   | 'chat_active'
   | 'chat_view_profile'
-  | 'chat_search_history';
+  | 'chat_search_history'
+  | 'btn_confirm'
+  | 'btn_reject'
+  | 'btn_delete'
+  | 'btn_archive'
+  | 'btn_call'
+  | 'btn_download_lease'
+  | 'btn_download_invoice'
+  // Chat Sidebar
+  | 'menu_mark_read'
+  | 'menu_mark_unread'
+  | 'confirm_delete_chat'
+  | 'no_active_chats'
+  | 'loading_chats'
+  // Chat Window
+  | 'timeline_title'
+  | 'no_dates'
+  | 'expires_in'
+  | 'left_to_action'
+  // Chat Layout
+  | 'loading_conversation'
+  | 'select_conversation'
+  | 'select_conversation_desc'
+  // Right Panel
+  | 'rp_details'
+  | 'rp_map'
+  | 'rp_profile'
+  | 'rp_pickup_location'
+  | 'rp_map_placeholder'
+  | 'rp_leases'
+  | 'rp_status'
+  | 'rp_active'
+  | 'rp_rider_details'
+  | 'rp_full_name'
+  | 'rp_enter_name'
+  | 'rp_contact_info'
+  | 'rp_phone_email'
+  | 'rp_passport_id'
+  | 'rp_passport_number'
+  | 'rp_owner_details'
+  | 'rp_rent_service_name'
+  | 'rp_shown_on_contract'
+  | 'rp_business_address'
+  | 'rp_full_address'
+  // Statuses
+  | 'status_collected'
+  | 'status_completed'
+  | 'status_overdue'
+  | 'status_confirmed'
+  | 'status_pending'
+  | 'status_wait_owner'
+  | 'status_wait_rider'
+  | 'status_rejected'
+  | 'status_maintenance'
+  | 'status_cancelled'
+  | 'status_conflict'
+  | 'status_no_response'
+  // Time
+  | 'time_ended'
+  | 'time_overdue_by'
+  | 'time_ending_now'
+  | 'time_ends_in'
+  | 'time_days_left';
 
 const dictionary: Record<Language, Record<TranslationKey, string>> = {
   ru: {
@@ -235,6 +296,7 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_clear: 'Очистить',
     btn_save_sign: 'Сохранить подпись',
     msg_sign_saved: 'Подпись сохранена',
+    lbl_sign_here: 'Подпишите здесь',
 
     // Login
     login_title: 'Ограниченный доступ',
@@ -281,12 +343,80 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     lp_pickup_fee: 'Сбор за выдачу',
     lp_return_fee: 'Сбор за возврат',
     
-    // Chat
+    // Chat General
     chat_search: 'Поиск чатов',
     chat_type_message: 'Введите сообщение...',
     chat_active: 'Активен',
     chat_view_profile: 'Профиль',
-    chat_search_history: 'Поиск в истории'
+    chat_search_history: 'Поиск в истории',
+    btn_confirm: 'Подтвердить',
+    btn_reject: 'Отклонить',
+    btn_delete: 'Удалить',
+    btn_archive: 'Архив',
+    btn_call: 'Позвонить',
+    btn_download_lease: 'Скачать договор',
+    btn_download_invoice: 'Скачать счет',
+
+    // Chat Sidebar
+    menu_mark_read: 'Прочитано',
+    menu_mark_unread: 'Непрочитано',
+    confirm_delete_chat: 'Вы уверены, что хотите удалить этот чат? Это действие необратимо.',
+    no_active_chats: 'Нет активных чатов.',
+    loading_chats: 'Загрузка чатов...',
+
+    // Chat Window
+    timeline_title: 'Таймлайн',
+    no_dates: 'Даты не выбраны',
+    expires_in: 'Истекает через',
+    left_to_action: 'на решение',
+
+    // Chat Layout
+    loading_conversation: 'Загрузка переписки...',
+    select_conversation: 'Выберите чат',
+    select_conversation_desc: 'Выберите чат из списка, чтобы увидеть детали, управлять договорами и общаться с арендаторами.',
+
+    // Right Panel
+    rp_details: 'Детали',
+    rp_map: 'Карта',
+    rp_profile: 'Профиль',
+    rp_pickup_location: 'Место подачи',
+    rp_map_placeholder: 'Карта',
+    rp_leases: 'Аренды',
+    rp_status: 'Статус',
+    rp_active: 'Активен',
+    rp_rider_details: 'Данные Райдера',
+    rp_full_name: 'ФИО',
+    rp_enter_name: 'Введите имя',
+    rp_contact_info: 'Контакты',
+    rp_phone_email: 'Телефон или Email',
+    rp_passport_id: 'Паспорт / ID',
+    rp_passport_number: 'Номер паспорта',
+    rp_owner_details: 'Данные Владельца',
+    rp_rent_service_name: 'Название проката',
+    rp_shown_on_contract: 'Для договора',
+    rp_business_address: 'Адрес офиса',
+    rp_full_address: 'Полный адрес',
+
+    // Statuses
+    status_collected: 'Выдано',
+    status_completed: 'Завершено',
+    status_overdue: 'Просрочено',
+    status_confirmed: 'Подтверждено',
+    status_pending: 'Ожидание',
+    status_wait_owner: 'Ждет Владельца',
+    status_wait_rider: 'Ждет Райдера',
+    status_rejected: 'Отклонено',
+    status_maintenance: 'Обслуживание',
+    status_cancelled: 'Отменено',
+    status_conflict: 'Конфликт',
+    status_no_response: 'Нет ответа',
+
+    // Time
+    time_ended: 'Завершено',
+    time_overdue_by: 'Просрочка',
+    time_ending_now: 'Завершается сейчас',
+    time_ends_in: 'До конца',
+    time_days_left: 'дн. осталось'
   },
   en: {
     invoice_editor: 'Invoice Editor',
@@ -381,6 +511,7 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_clear: 'Clear',
     btn_save_sign: 'Save Signature',
     msg_sign_saved: 'Signature Saved',
+    lbl_sign_here: 'Sign Here',
 
     // Login
     login_title: 'Restricted Access',
@@ -427,12 +558,80 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     lp_pickup_fee: 'Pick-up fee',
     lp_return_fee: 'Return fee',
 
-    // Chat
+    // Chat General
     chat_search: 'Search chats',
     chat_type_message: 'Type a message...',
     chat_active: 'Active now',
     chat_view_profile: 'View profile',
-    chat_search_history: 'Search history'
+    chat_search_history: 'Search history',
+    btn_confirm: 'Confirm',
+    btn_reject: 'Reject',
+    btn_delete: 'Delete',
+    btn_archive: 'Archive',
+    btn_call: 'Call',
+    btn_download_lease: 'Download Lease',
+    btn_download_invoice: 'Download Invoice',
+
+    // Chat Sidebar
+    menu_mark_read: 'Mark as Read',
+    menu_mark_unread: 'Mark as Unread',
+    confirm_delete_chat: 'Are you sure you want to delete this conversation? This cannot be undone.',
+    no_active_chats: 'No active chats found.',
+    loading_chats: 'Loading chats...',
+
+    // Chat Window
+    timeline_title: 'Timeline',
+    no_dates: 'No dates set',
+    expires_in: 'Expires in',
+    left_to_action: 'left to action',
+
+    // Chat Layout
+    loading_conversation: 'Loading conversation...',
+    select_conversation: 'Select a Conversation',
+    select_conversation_desc: 'Choose a chat from the sidebar to view details, manage lease agreements, and communicate with renters.',
+
+    // Right Panel
+    rp_details: 'Details',
+    rp_map: 'Map',
+    rp_profile: 'Profile',
+    rp_pickup_location: 'Pickup Location',
+    rp_map_placeholder: 'Map Placeholder',
+    rp_leases: 'Leases',
+    rp_status: 'Status',
+    rp_active: 'Active',
+    rp_rider_details: 'Rider Details',
+    rp_full_name: 'Full Name',
+    rp_enter_name: 'Enter Name',
+    rp_contact_info: 'Contact Info',
+    rp_phone_email: 'Phone or Email',
+    rp_passport_id: 'Passport / ID',
+    rp_passport_number: 'Passport Number',
+    rp_owner_details: 'Owner Details',
+    rp_rent_service_name: 'Rent Service Name',
+    rp_shown_on_contract: 'Shown on contract',
+    rp_business_address: 'Business Address',
+    rp_full_address: 'Full Address',
+
+    // Statuses
+    status_collected: 'Collected',
+    status_completed: 'Completed',
+    status_overdue: 'Overdue',
+    status_confirmed: 'Confirmed',
+    status_pending: 'Pending',
+    status_wait_owner: 'Wait Owner',
+    status_wait_rider: 'Wait Rider',
+    status_rejected: 'Rejected',
+    status_maintenance: 'Maintenance',
+    status_cancelled: 'Cancelled',
+    status_conflict: 'Conflict',
+    status_no_response: 'No Response',
+
+    // Time
+    time_ended: 'Ended',
+    time_overdue_by: 'Overdue by',
+    time_ending_now: 'Ending now',
+    time_ends_in: 'Ends in',
+    time_days_left: 'days left'
   },
 };
 

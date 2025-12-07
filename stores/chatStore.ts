@@ -1,115 +1,8 @@
-
-
 import { create } from 'zustand';
-import { ChatSession, ChatMessage, LeaseData, NtfyMessage, LeaseStatus, MessageType } from '../types';
-import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, HistoryEvent, getChatSseUrl } from '../services/ownimaApi';
-import { authService } from '../services/authService';
+import { ChatSession, ChatMessage, LeaseData } from '../types';
+import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
-
-// --- HELPERS ---
-
-const ntfyToChatMessage = (ntfy: NtfyMessage, initialStatus: 'read' | 'sent' = 'read'): ChatMessage => {
-    let senderId = 'other';
-    const currentUser = authService.getUsername();
-
-    // Strict Auth Matching
-    if (currentUser && ntfy.title === currentUser) {
-        senderId = 'me';
-    } 
-    // Fallback Legacy Matching
-    else if (ntfy.title === 'Me') {
-        senderId = 'me';
-    }
-    
-    // System messages detection
-    if (ntfy.title === 'System' || ntfy.tags?.includes('system')) senderId = 'system';
-
-    let type: MessageType = 'text';
-    let statusMetadata: LeaseStatus | undefined = undefined;
-    let attachmentUrl: string | undefined = undefined;
-
-    if (ntfy.tags?.includes('system')) {
-        type = 'system';
-        const statusTag = ntfy.tags?.find(t => t.startsWith('status:'));
-        if (statusTag) {
-            statusMetadata = statusTag.split(':')[1] as LeaseStatus;
-        }
-    }
-
-    // Check for attachment
-    if (ntfy.attachment) {
-        type = 'image';
-        // Use attachment URL directly. Usually absolute or relative to domain.
-        // Ntfy usually provides valid URL in attachment.url
-        attachmentUrl = ntfy.attachment.url;
-    }
-    
-    // Store as raw timestamp (ms)
-    const timestamp = ntfy.time * 1000;
-
-    return {
-        id: ntfy.id,
-        senderId,
-        text: ntfy.message, // Ntfy usually uses filename as message for uploads if not specified
-        timestamp,
-        type,
-        status: initialStatus,
-        attachmentUrl,
-        metadata: {
-            status: statusMetadata
-        }
-    };
-};
-
-const historyToChatMessage = (event: HistoryEvent): ChatMessage => {
-    // Map API confirmation event to System Message
-    // Use meta.reason_hint as status key if available
-    let statusKey: LeaseStatus | undefined = undefined;
-    
-    if (event.meta?.reason_hint) {
-        // Map "reservation_pending" -> "pending"
-        // Map "reservation_confirmation_by_rider" -> "confirmation_rider"
-        let hint = event.meta.reason_hint.replace('reservation_', '');
-        hint = hint.replace('_by_', '_'); // Normalize "confirmation_by_rider" to "confirmation_rider"
-        
-        // Validate against known statuses or cast if dynamic
-        statusKey = hint as LeaseStatus; 
-    } else if (typeof event.status === 'string') {
-        statusKey = event.status.toLowerCase().replace('status_', '') as LeaseStatus;
-    }
-
-    const timestamp = new Date(event.confirmation_date).getTime();
-
-    // Friendly text based on status or note
-    let text = event.confirmation_note || `Status changed`;
-    
-    // Clean up "Reason:" prefix if present
-    if (text.startsWith('Reason: ')) {
-        text = text.substring(8);
-    }
-    
-    // Provide nice defaults if note is empty
-    if (!event.confirmation_note && statusKey) {
-        if (statusKey === 'collected') text = 'Vehicle collected by Rider';
-        if (statusKey === 'completed') text = 'Lease completed successfully';
-        if (statusKey === 'confirmed') text = 'Reservation confirmed';
-        if (statusKey === 'pending') text = 'Reservation is pending';
-        if (statusKey === 'confirmation_owner') text = 'Waiting for Owner confirmation';
-        if (statusKey === 'confirmation_rider') text = 'Waiting for Rider confirmation';
-    }
-
-    return {
-        id: `hist_${event.confirmation_date}_${Math.random()}`,
-        senderId: 'system',
-        text,
-        timestamp,
-        type: 'system',
-        status: 'read',
-        metadata: {
-            status: statusKey
-        }
-    };
-};
+import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
 
 // --- STORE DEFINITION ---
 
@@ -134,9 +27,11 @@ interface ChatState {
     confirmReservation: () => Promise<void>;
     rejectReservation: () => Promise<void>;
     markAsRead: (sessionId: string) => void;
+    markAsUnread: (sessionId: string) => void;
     markMessageAsRead: (sessionId: string, messageId: string) => void;
     setupBackgroundSync: () => void;
     archiveSession: (sessionId: string) => void;
+    deleteSession: (sessionId: string) => Promise<void>;
     disconnect: () => void;
 }
 
@@ -264,7 +159,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
             );
 
             // 4. Merge & Sort
+            
+            // Create Synthetic Summary Message
+            const createdTime = leaseData.createdDate ? new Date(leaseData.createdDate).getTime() : Date.now();
+            const summaryMessage: ChatMessage = {
+                id: `sys_summary_${leaseData.reservationId}`,
+                senderId: 'system',
+                text: `Reservation Details\n📅 ${leaseData.pickup.date} -> ${leaseData.dropoff.date}\n💰 ${leaseData.pricing.total.toLocaleString()} ${leaseData.pricing.currency || 'THB'}`,
+                timestamp: createdTime - 1, // Ensure it appears before "Reservation created via Web" if timestamps match exactly
+                type: 'system',
+                status: 'read'
+            };
+
             const allMessages = [
+                summaryMessage,
                 ...historyEvents.map(h => historyToChatMessage(h)),
                 ...ntfyData.map((n: any) => {
                     const local = localMsgMap.get(n.id);
@@ -300,7 +208,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     vehicleName: leaseData.vehicle.name,
                     plateNumber: leaseData.vehicle.plate,
                     status: leaseData.status || 'pending',
-                    price: leaseData.pricing.total
+                    price: leaseData.pricing.total,
+                    deadline: leaseData.deadline // CACHE DEADLINE
                 }
             };
 
@@ -328,65 +237,73 @@ export const useChatStore = create<ChatState>((set, get) => ({
             await dbService.saveSession(newSession);
 
             // 7. Establish SSE Connection for Live Updates
-            if (get().currentLoadToken === myToken) {
-                const sseUrl = getChatSseUrl(topicId);
-                const eventSource = new EventSource(sseUrl);
-                
-                eventSource.onmessage = (event) => {
-                    // Safety check inside callback
-                    if (get().currentLoadToken !== myToken) {
-                         eventSource.close();
-                         return;
-                    }
+            // Only connect if we have a valid topic and NOT in demo mode
+            if (get().currentLoadToken === myToken && leaseData.source !== 'OFFLINE_DEMO') {
+                try {
+                    const sseUrl = getChatSseUrl(topicId);
+                    const eventSource = new EventSource(sseUrl);
+                    
+                    eventSource.onmessage = (event) => {
+                        // Safety check inside callback
+                        if (get().currentLoadToken !== myToken) {
+                             eventSource.close();
+                             return;
+                        }
 
-                    try {
-                        const ntfyMsg = JSON.parse(event.data);
-                        if (ntfyMsg.event !== 'message') return;
-                        
-                        // Always mark incoming live messages as 'sent' (unread) initially.
-                        // The UI IntersectionObserver will mark them as 'read' when visible.
-                        const status = 'sent';
-
-                        const chatMsg = ntfyToChatMessage(ntfyMsg, status);
-                        
-                        set(state => {
-                            const sessionIndex = state.sessions.findIndex(s => s.id === topicId);
-                            if (sessionIndex === -1) return {};
-
-                            const session = state.sessions[sessionIndex];
-                            // Deduplicate based on ID
-                            if (session.messages.some(m => m.id === chatMsg.id)) return {};
-
-                            const updatedMessages = [...session.messages, chatMsg];
+                        try {
+                            const ntfyMsg = JSON.parse(event.data);
+                            if (ntfyMsg.event !== 'message') return;
                             
-                            const isIncoming = chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system';
-                            const newUnreadCount = isIncoming ? (session.unreadCount || 0) + 1 : (session.unreadCount || 0);
+                            // Always mark incoming live messages as 'sent' (unread) initially.
+                            // The UI IntersectionObserver will mark them as 'read' when visible.
+                            const status = 'sent';
 
-                            const updatedSession = {
-                                ...session,
-                                messages: updatedMessages,
-                                lastMessage: chatMsg.type === 'image' ? 'Image Attachment' : chatMsg.text,
-                                lastMessageTime: chatMsg.timestamp,
-                                unreadCount: newUnreadCount
-                            };
+                            const chatMsg = ntfyToChatMessage(ntfyMsg, status);
                             
-                            const newSessions = [...state.sessions];
-                            newSessions[sessionIndex] = updatedSession;
-                            
-                            dbService.saveSession(updatedSession);
-                            
-                            return { sessions: newSessions };
-                        });
-                    } catch (e) {
-                        console.error("SSE Parse Error", e);
-                    }
-                };
-                
-                eventSource.onerror = (err) => {
-                    console.error("SSE Connection Error", err);
-                };
+                            set(state => {
+                                const sessionIndex = state.sessions.findIndex(s => s.id === topicId);
+                                if (sessionIndex === -1) return {};
 
-                set({ activeEventSource: eventSource });
+                                const session = state.sessions[sessionIndex];
+                                // Deduplicate based on ID
+                                if (session.messages.some(m => m.id === chatMsg.id)) return {};
+
+                                const updatedMessages = [...session.messages, chatMsg];
+                                
+                                const isIncoming = chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system';
+                                const newUnreadCount = isIncoming ? (session.unreadCount || 0) + 1 : (session.unreadCount || 0);
+
+                                const updatedSession = {
+                                    ...session,
+                                    messages: updatedMessages,
+                                    lastMessage: chatMsg.type === 'image' ? 'Image Attachment' : chatMsg.text,
+                                    lastMessageTime: chatMsg.timestamp,
+                                    unreadCount: newUnreadCount
+                                };
+                                
+                                const newSessions = [...state.sessions];
+                                newSessions[sessionIndex] = updatedSession;
+                                
+                                dbService.saveSession(updatedSession);
+                                
+                                return { sessions: newSessions };
+                            });
+                        } catch (e) {
+                            console.error("SSE Parse Error", e);
+                        }
+                    };
+                    
+                    eventSource.onerror = (err) => {
+                        // Downgrade to warning as this is expected in some environments (CORS/Offline)
+                        // Close connection to prevent retry loop spam in console
+                        eventSource.close();
+                        console.warn("Chat connection lost (offline or CORS). Live updates paused.");
+                    };
+
+                    set({ activeEventSource: eventSource });
+                } catch (e) {
+                    console.warn("Failed to init SSE", e);
+                }
             }
 
         } catch (e: any) {
@@ -423,6 +340,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
     },
 
+    deleteSession: async (sessionId: string) => {
+        set(state => {
+            const newSessions = state.sessions.filter(s => s.id !== sessionId);
+            // If active, deselect
+            const newActive = state.activeSessionId === sessionId ? null : state.activeSessionId;
+            
+            dbService.deleteSession(sessionId);
+            return { sessions: newSessions, activeSessionId: newActive };
+        });
+    },
+
     markAsRead: (sessionId: string) => {
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
@@ -433,6 +361,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const newMessages = session.messages.map(m => ({ ...m, status: 'read' as const }));
             
             const newSession = { ...session, messages: newMessages, unreadCount: 0 };
+            const newSessions = [...state.sessions];
+            newSessions[sessionIdx] = newSession;
+            
+            dbService.saveSession(newSession);
+            return { sessions: newSessions };
+        });
+    },
+
+    markAsUnread: (sessionId: string) => {
+        set(state => {
+            const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
+            if (sessionIdx === -1) return {};
+            
+            const session = state.sessions[sessionIdx];
+            const newSession = { ...session, unreadCount: 1 }; // Force unread state
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
             

@@ -50,6 +50,11 @@ export default function EditorPage() {
         setDocType('chat');
         chatStore.loadChatSession(id);
     }
+    
+    // Cleanup: Disconnect chat when component unmounts or ID changes
+    return () => {
+        chatStore.disconnect();
+    };
   }, [id]);
 
   // Sync Lease Editor with Active Chat Session

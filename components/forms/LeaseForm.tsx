@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LeaseData, Language } from '../../types';
 import InputGroup from '../ui/InputGroup';
@@ -164,6 +163,7 @@ const LeaseForm: React.FC<LeaseFormProps> = ({ data, lang, handlers, compact = f
               onClear={() => updateLease('owner', 'signature', undefined)}
               savedLabel={t('msg_sign_saved', lang)}
               clearLabel={t('btn_clear', lang)}
+              placeholderText={t('lbl_sign_here', lang)}
           />
           <SignaturePad 
               label={t('lbl_sign_renter', lang)} 
@@ -172,6 +172,7 @@ const LeaseForm: React.FC<LeaseFormProps> = ({ data, lang, handlers, compact = f
               onClear={() => updateLease('renter', 'signature', undefined)}
               savedLabel={t('msg_sign_saved', lang)}
               clearLabel={t('btn_clear', lang)}
+              placeholderText={t('lbl_sign_here', lang)}
           />
       </div>
   );

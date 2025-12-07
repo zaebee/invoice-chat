@@ -44,6 +44,7 @@ export interface LeaseData {
   status?: LeaseStatus; // Added status field
   source: string;
   createdDate: string; // DateTime string
+  deadline?: number; // Unix Timestamp (ms) for action deadline
   vehicle: {
     name: string; // e.g. BMW X1, 2017
     details: string; // e.g. LAND • MOTORCYCLE...
@@ -161,6 +162,7 @@ export interface ChatSession {
     plateNumber: string;
     status: LeaseStatus;
     price: number;
+    deadline?: number; // Cached deadline
   };
 }
 
