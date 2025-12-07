@@ -122,7 +122,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     </div>
                 )}
 
-                <div className="flex flex-col">
+                <div className="flex flex-col pb-20">
                     {filteredSessions.map((chat) => {
                         const isActive = activeId === chat.id;
                         const isMenuOpen = activeMenuId === chat.id;

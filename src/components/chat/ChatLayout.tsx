@@ -123,7 +123,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
             </div>
 
             {/* MIDDLE: Chat Room */}
-            <div className={`flex-col bg-slate-50/30 relative shrink-0 min-w-0 
+            <div className={`flex-col bg-slate-50/30 relative shrink-0 min-w-0 h-full
                 ${mobileView === 'room' ? 'flex w-full' : 'hidden'} 
                 md:flex md:flex-1`}>
                 {activeChat ? (
