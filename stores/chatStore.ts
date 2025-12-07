@@ -209,7 +209,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 reservationSummary: {
                     vehicleName: leaseData.vehicle.name,
                     plateNumber: leaseData.vehicle.plate,
-                    vehicleImageUrl: leaseData.vehicle.imageUrl,
                     status: leaseData.status || 'pending',
                     price: leaseData.pricing.total,
                     deadline: leaseData.deadline // CACHE DEADLINE
@@ -296,7 +295,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         }
                     };
                     
-                    eventSource.onerror = (err) => {
+                    eventSource.onerror = () => {
                         // Downgrade to warning as this is expected in some environments (CORS/Offline)
                         // Close connection to prevent retry loop spam in console
                         eventSource.close();
