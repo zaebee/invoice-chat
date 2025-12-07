@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LeaseData, Language, ChatSession, INITIAL_LEASE } from '../../types';
-import { useIsMobile } from '../../hooks/useIsMobile';
 import { useChatStore } from '../../stores/chatStore';
 import { ChatSidebar } from './ChatSidebar';
 import { ChatWindow } from './ChatWindow';
@@ -16,10 +15,10 @@ interface ChatLayoutProps {
 }
 
 export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHandlers }) => {
-    const isMobile = useIsMobile();
     const navigate = useNavigate();
     const { id: routeId } = useParams<{ id: string }>();
     
+    // Track view mode mainly for mobile sliding logic
     const [mobileView, setMobileView] = useState<'list' | 'room'>('list');
     
     // Sidebar Collapse State
@@ -53,13 +52,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
         }
     }, [isHydrated, hydrate]);
     
+    // Sync mobile view state with route
     useEffect(() => {
         if (routeId) {
-            if (isMobile) setMobileView('room');
+            setMobileView('room');
         } else {
             setMobileView('list');
         }
-    }, [routeId, isMobile]);
+    }, [routeId]);
 
     const currentActiveId = routeId || activeSessionId;
     const activeChat = sessions.find((c: ChatSession) => c.id === currentActiveId);
@@ -98,11 +98,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     const handleChatSelect = (chatId: string) => {
         setActiveSession(chatId);
-        if (routeId === chatId && isMobile) {
-            setMobileView('room');
-        } else {
-            navigate(`/chat/detail/${chatId}`);
-        }
+        // On selection, navigate to detail route
+        navigate(`/chat/detail/${chatId}`);
     };
 
     const handleBackToList = () => {
@@ -111,16 +108,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     return (
         <div className="flex h-full bg-white md:rounded-xl overflow-hidden md:border border-slate-200 md:shadow-sm relative">
-            <div className={`flex h-full shrink-0 transition-transform duration-300 ease-out will-change-transform ${
-                isMobile ? 'w-[200%]' : 'w-full'
-            } ${
-                isMobile && mobileView === 'room' ? '-translate-x-1/2' : 'translate-x-0'
-            }`}>
+            {/* 
+                Sliding Container Logic:
+                - Mobile (< md): Width is 200%. Slide left (-50%) to show Room, Slide 0 to show List.
+                - Desktop (>= md): Width is 100%. Translate is always 0.
+            */}
+            <div className={`flex h-full shrink-0 transition-transform duration-300 ease-out will-change-transform 
+                w-[200%] md:w-full
+                ${mobileView === 'room' ? '-translate-x-1/2 md:translate-x-0' : 'translate-x-0'}
+            `}>
 
-                {/* LEFT: Sidebar List */}
-                <div className={`flex flex-col bg-slate-50 relative shrink-0 ${
-                    isMobile ? 'w-1/2 border-r-0' : 'w-80 border-r border-slate-200 shrink-0'
-                }`}>
+                {/* LEFT: Sidebar List (50% on mobile, Fixed width on desktop) */}
+                <div className="flex flex-col bg-slate-50 relative shrink-0 w-1/2 md:w-80 border-r-0 md:border-r border-slate-200">
                     <ChatSidebar 
                         sessions={sessions}
                         activeId={currentActiveId}
@@ -130,10 +129,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                     />
                 </div>
 
-                {/* MIDDLE: Chat Room */}
-                <div className={`flex flex-col bg-slate-50/30 relative shrink-0 ${
-                    isMobile ? 'w-1/2' : 'flex-1 min-w-0'
-                }`}>
+                {/* MIDDLE: Chat Room (50% on mobile, Flexible on desktop) */}
+                <div className="flex flex-col bg-slate-50/30 relative shrink-0 w-1/2 md:flex-1 min-w-0">
                     {activeChat ? (
                         <ChatWindow 
                             chat={activeChat}
@@ -170,7 +167,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                     )}
                 </div>
 
-                {/* RIGHT: Context Panel (Desktop Only) */}
+                {/* RIGHT: Context Panel (Desktop Only, conditional rendering) */}
                 {activeChat && (
                     <RightPanel 
                         chat={activeChat}

@@ -135,13 +135,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
             {/* HEADER */}
-            <div className="h-14 md:h-16 border-b border-slate-200 flex justify-between items-center px-4 md:px-6 shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
+            <div className="h-14 md:h-16 border-b border-slate-200 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
                 <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    {isMobile && (
-                        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors shrink-0">
-                            <ArrowLeft size={20} />
-                        </button>
-                    )}
+                    <button onClick={onBack} className="md:hidden p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors shrink-0 -ml-2">
+                        <ArrowLeft size={20} />
+                    </button>
                     
                     {/* User Info */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -154,14 +152,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         <div className="flex flex-col min-w-0 justify-center">
                             <div className="flex items-center gap-1.5">
                                 <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{chat.user.name}</h3>
-                                {isMobile && <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.accent}`} />}
+                                <div className={`md:hidden w-1.5 h-1.5 rounded-full ${statusConfig.accent}`} />
                             </div>
-                            {!isMobile && (
-                                <p className="text-xs text-green-600 flex items-center gap-1 font-medium">
-                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                                    {t('chat_active', lang)}
-                                </p>
-                            )}
+                            <p className="hidden md:flex text-xs text-green-600 items-center gap-1 font-medium">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                {t('chat_active', lang)}
+                            </p>
                         </div>
                     </div>
                 </div>
