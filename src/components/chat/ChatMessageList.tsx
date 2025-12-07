@@ -1,6 +1,7 @@
 
+
 import React, { useRef, useEffect } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass } from 'lucide-react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -11,6 +12,8 @@ interface ChatMessageListProps {
     onReadMessage: (id: string) => void;
     onConfirm: () => void;
     onReject: () => void;
+    onCollect?: () => void;
+    onComplete?: () => void;
     leaseStatus?: LeaseStatus;
     lang: Language;
     deadline?: {
@@ -27,6 +30,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     onReadMessage,
     onConfirm,
     onReject,
+    onCollect,
+    onComplete,
     leaseStatus,
     lang,
     deadline
@@ -87,6 +92,53 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
          } catch { return ''; }
     };
 
+    // Helper to render relevant actions based on message status context
+    const renderActions = (msgStatus: LeaseStatus | undefined) => {
+        // Only show actions if the message status matches the CURRENT lease status
+        if (!msgStatus || msgStatus !== leaseStatus) return null;
+
+        switch (msgStatus) {
+            case 'confirmation_owner':
+                return (
+                    <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300">
+                        {deadline && deadline.hasDeadline && !deadline.isExpired && (
+                            <div className={`mb-2 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${deadline.isCritical ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' : 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'}`}>
+                                <Hourglass size={10} /> 
+                                {t('expires_in', lang)} {deadline.timeLeft}
+                            </div>
+                        )}
+                        <div className="flex gap-2 md:gap-3">
+                            <button onClick={onConfirm} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all"><ThumbsUp size={14} /> {t('btn_confirm', lang)}</button>
+                            <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
+                        </div>
+                    </div>
+                );
+            
+            case 'confirmed':
+                if (!onCollect) return null;
+                return (
+                    <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300">
+                        <button onClick={onCollect} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
+                            <Key size={14} /> {t('btn_collect', lang)}
+                        </button>
+                    </div>
+                );
+
+            case 'collected':
+                if (!onComplete) return null;
+                return (
+                    <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300">
+                        <button onClick={onComplete} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
+                            <Flag size={14} /> {t('btn_complete', lang)}
+                        </button>
+                    </div>
+                );
+
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 overscroll-contain">
             {messages.map((msg: ChatMessage, index: number) => {
@@ -137,20 +189,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                     </p>
                                 )}
 
-                                {msg.metadata?.status === 'confirmation_owner' && leaseStatus !== 'confirmed' && leaseStatus !== 'rejected' && (
-                                    <div className="mt-3 flex flex-col items-center z-10 w-full">
-                                        {deadline && deadline.hasDeadline && !deadline.isExpired && (
-                                            <div className={`mb-2 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${deadline.isCritical ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' : 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'}`}>
-                                                <Hourglass size={10} /> 
-                                                {t('expires_in', lang)} {deadline.timeLeft}
-                                            </div>
-                                        )}
-                                        <div className="flex gap-2 md:gap-3">
-                                            <button onClick={onConfirm} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95"><ThumbsUp size={14} /> {t('btn_confirm', lang)}</button>
-                                            <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 rounded-xl text-xs font-bold shadow-sm active:scale-95"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
-                                        </div>
-                                    </div>
-                                )}
+                                {renderActions(msg.metadata?.status)}
                             </div>
                         ) : (
                             <div className={`message-wrapper flex gap-2 md:gap-3 max-w-[90%] md:max-w-[70%] ${msg.senderId === 'me' ? 'self-end flex-row-reverse' : 'self-start'}`} data-id={msg.id} data-status={msg.status} data-sender={msg.senderId}>

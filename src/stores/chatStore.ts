@@ -1,4 +1,6 @@
 
+
+
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
@@ -27,6 +29,8 @@ interface ChatState {
     getActiveSession: () => ChatSession | undefined;
     confirmReservation: () => Promise<void>;
     rejectReservation: () => Promise<void>;
+    collectReservation: () => Promise<void>;
+    completeReservation: () => Promise<void>;
     markAsRead: (sessionId: string) => void;
     markAsUnread: (sessionId: string) => void;
     markMessageAsRead: (sessionId: string, messageId: string) => void;
@@ -575,5 +579,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // 2. Send System Message
         await sendMessage("❌ Reservation rejected by Owner");
+    },
+
+    collectReservation: async () => {
+        const { sendMessage, leaseContext } = get();
+        if (!leaseContext) return;
+        
+        // 1. Optimistically update Status
+        set(state => ({
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'collected' } : null
+        }));
+
+        // 2. Send System Message
+        await sendMessage("🔑 Vehicle collected by Rider");
+    },
+
+    completeReservation: async () => {
+        const { sendMessage, leaseContext } = get();
+        if (!leaseContext) return;
+        
+        // 1. Optimistically update Status
+        set(state => ({
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'completed' } : null
+        }));
+
+        // 2. Send System Message
+        await sendMessage("🏁 Lease completed successfully");
     }
 }));

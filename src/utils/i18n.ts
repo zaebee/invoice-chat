@@ -148,6 +148,8 @@ export type TranslationKey =
   | 'btn_call'
   | 'btn_download_lease'
   | 'btn_download_invoice'
+  | 'btn_collect'
+  | 'btn_complete'
   // Chat Sidebar
   | 'menu_mark_read'
   | 'menu_mark_unread'
@@ -363,6 +365,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Позвонить',
     btn_download_lease: 'Скачать договор',
     btn_download_invoice: 'Скачать счет',
+    btn_collect: 'Выдать',
+    btn_complete: 'Завершить',
 
     // Chat Sidebar
     menu_mark_read: 'Прочитано',
@@ -583,6 +587,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Call',
     btn_download_lease: 'Download Lease',
     btn_download_invoice: 'Download Invoice',
+    btn_collect: 'Hand Over',
+    btn_complete: 'Complete',
 
     // Chat Sidebar
     menu_mark_read: 'Mark as Read',
@@ -789,6 +795,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'โทร',
     btn_download_lease: 'ดาวน์โหลดสัญญา',
     btn_download_invoice: 'ดาวน์โหลดใบแจ้งหนี้',
+    btn_collect: 'ส่งมอบรถ',
+    btn_complete: 'เสร็จสิ้น',
     menu_mark_read: 'ทำเครื่องหมายว่าอ่านแล้ว',
     menu_mark_unread: 'ทำเครื่องหมายว่ายังไม่อ่าน',
     confirm_delete_chat: 'คุณแน่ใจหรือไม่ว่าต้องการลบการสนทนานี้?',
@@ -983,6 +991,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Gọi',
     btn_download_lease: 'Tải hợp đồng',
     btn_download_invoice: 'Tải hóa đơn',
+    btn_collect: 'Giao xe',
+    btn_complete: 'Hoàn thành',
     menu_mark_read: 'Đánh dấu đã đọc',
     menu_mark_unread: 'Đánh dấu chưa đọc',
     confirm_delete_chat: 'Bạn có chắc chắn muốn xóa cuộc trò chuyện này không?',
@@ -1177,6 +1187,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Panggil',
     btn_download_lease: 'Unduh Sewa',
     btn_download_invoice: 'Unduh Faktur',
+    btn_collect: 'Serahkan',
+    btn_complete: 'Selesai',
     menu_mark_read: 'Tandai sudah dibaca',
     menu_mark_unread: 'Tandai belum dibaca',
     confirm_delete_chat: 'Apakah Anda yakin ingin menghapus percakapan ini?',

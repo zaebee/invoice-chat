@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
@@ -39,7 +40,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const menuRef = useRef<HTMLDivElement>(null);
     
     // Store Actions
-    const { sendMessage, sendImage, markMessageAsRead, confirmReservation, rejectReservation } = useChatStore();
+    const { sendMessage, sendImage, markMessageAsRead, confirmReservation, rejectReservation, collectReservation, completeReservation } = useChatStore();
     
     // Deadline Hook
     const deadline = useDeadline(leaseData.deadline);
@@ -285,6 +286,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         onReadMessage={(id) => markMessageAsRead(chat.id, id)}
                         onConfirm={confirmReservation}
                         onReject={rejectReservation}
+                        onCollect={collectReservation}
+                        onComplete={completeReservation}
                         leaseStatus={leaseData.status}
                         lang={lang}
                         deadline={deadline}
