@@ -16,6 +16,7 @@ import InvoicePreview from '../InvoicePreview';
 import { LeasePdf } from '../LeasePdf';
 import { InvoicePdf } from '../PdfDocument';
 import { ChatContextHeader } from './ChatContextHeader';
+import { ChatContextMobile } from './ChatContextMobile';
 import { ChatMessageList } from './ChatMessageList';
 import { StatusBadge } from './StatusBadge';
 
@@ -157,15 +158,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{chat.user.name}</h3>
                                 {isMobile && <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.accent}`} />}
                             </div>
-                            {isMobile ? (
-                                <div className="flex flex-col">
-                                    <p className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1 leading-tight mt-0.5">
-                                        <span className="truncate max-w-[120px]">{leaseData.vehicle.name}</span>
-                                        <span className="text-slate-300">•</span>
-                                        <span className={statusConfig.text}>{t(statusConfig.labelKey, lang)}</span>
-                                    </p>
-                                </div>
-                            ) : (
+                            {!isMobile && (
                                 <p className="text-xs text-green-600 flex items-center gap-1 font-medium">
                                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                                     {t('chat_active', lang)}
@@ -274,7 +267,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>
             </div>
 
-            {/* CONTEXT ISLAND (Desktop) - Only show in Chat tab */}
+            {/* CONTEXT STRIP (Mobile) */}
+            {activeTab === 'chat' && (
+                <ChatContextMobile leaseData={leaseData} lang={lang} deadline={deadline} />
+            )}
+
+            {/* CONTEXT ISLAND (Desktop) */}
             {activeTab === 'chat' && (
                 <ChatContextHeader 
                     leaseData={leaseData} 
