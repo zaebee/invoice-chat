@@ -108,76 +108,70 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     return (
         <div className="flex h-full bg-white md:rounded-xl overflow-hidden md:border border-slate-200 md:shadow-sm relative">
-            {/* 
-                Sliding Container Logic:
-                - Mobile (< md): Width is 200%. Slide left (-50%) to show Room, Slide 0 to show List.
-                - Desktop (>= md): Width is 100%. Translate is always 0.
-            */}
-            <div className={`flex h-full shrink-0 transition-transform duration-300 ease-out will-change-transform 
-                w-[200%] md:w-full
-                ${mobileView === 'room' ? '-translate-x-1/2 md:translate-x-0' : 'translate-x-0'}
-            `}>
+            
+            {/* LEFT: Sidebar List */}
+            <div className={`flex-col bg-slate-50 relative border-r-0 md:border-r border-slate-200 shrink-0 
+                ${mobileView === 'list' ? 'flex w-full' : 'hidden'} 
+                md:flex md:w-80`}>
+                <ChatSidebar 
+                    sessions={sessions}
+                    activeId={currentActiveId}
+                    isLoading={isLoading || !isHydrated}
+                    onSelect={handleChatSelect}
+                    lang={lang}
+                />
+            </div>
 
-                {/* LEFT: Sidebar List (50% on mobile, Fixed width on desktop) */}
-                <div className="flex flex-col bg-slate-50 relative shrink-0 w-1/2 md:w-80 border-r-0 md:border-r border-slate-200">
-                    <ChatSidebar 
-                        sessions={sessions}
-                        activeId={currentActiveId}
-                        isLoading={isLoading || !isHydrated}
-                        onSelect={handleChatSelect}
-                        lang={lang}
-                    />
-                </div>
-
-                {/* MIDDLE: Chat Room (50% on mobile, Flexible on desktop) */}
-                <div className="flex flex-col bg-slate-50/30 relative shrink-0 w-1/2 md:flex-1 min-w-0">
-                    {activeChat ? (
-                        <ChatWindow 
-                            chat={activeChat}
-                            leaseData={currentLeaseData}
-                            lang={lang}
-                            onBack={handleBackToList}
-                            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                            isSidebarOpen={isSidebarOpen}
-                        />
-                    ) : (
-                        <div className="flex-1 h-full flex flex-col items-center justify-center gap-6 text-slate-400 bg-slate-50/50">
-                            {isLoading ? (
-                                <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
-                                    <Loader2 className="animate-spin text-blue-500" size={48} />
-                                    <p className="text-sm font-medium text-slate-500">{t('loading_conversation', lang)}</p>
-                                </div>
-                            ) : (
-                                <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center mx-4">
-                                    <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 mx-auto mb-4 border border-blue-100 shadow-sm">
-                                        <MessageSquare size={32} />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-800 mb-2">{t('select_conversation', lang)}</h3>
-                                    <p className="text-slate-500 text-sm mb-6">
-                                        {t('select_conversation_desc', lang)}
-                                    </p>
-                                    <div className="flex gap-2 justify-center">
-                                        <div className="h-2 w-2 rounded-full bg-slate-200"></div>
-                                        <div className="h-2 w-2 rounded-full bg-slate-200"></div>
-                                        <div className="h-2 w-2 rounded-full bg-slate-200"></div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* RIGHT: Context Panel (Desktop Only, conditional rendering) */}
-                {activeChat && (
-                    <RightPanel 
+            {/* MIDDLE: Chat Room */}
+            <div className={`flex-col bg-slate-50/30 relative shrink-0 min-w-0 
+                ${mobileView === 'room' ? 'flex w-full' : 'hidden'} 
+                md:flex md:flex-1`}>
+                {activeChat ? (
+                    <ChatWindow 
                         chat={activeChat}
                         leaseData={currentLeaseData}
                         lang={lang}
-                        handlers={leaseHandlers}
-                        isOpen={isSidebarOpen}
+                        onBack={handleBackToList}
+                        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                        isSidebarOpen={isSidebarOpen}
                     />
+                ) : (
+                    <div className="flex-1 h-full flex flex-col items-center justify-center gap-6 text-slate-400 bg-slate-50/50">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
+                                <Loader2 className="animate-spin text-blue-500" size={48} />
+                                <p className="text-sm font-medium text-slate-500">{t('loading_conversation', lang)}</p>
+                            </div>
+                        ) : (
+                            <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center mx-4">
+                                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 mx-auto mb-4 border border-blue-100 shadow-sm">
+                                    <MessageSquare size={32} />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-2">{t('select_conversation', lang)}</h3>
+                                <p className="text-slate-500 text-sm mb-6">
+                                    {t('select_conversation_desc', lang)}
+                                </p>
+                                <div className="flex gap-2 justify-center">
+                                    <div className="h-2 w-2 rounded-full bg-slate-200"></div>
+                                    <div className="h-2 w-2 rounded-full bg-slate-200"></div>
+                                    <div className="h-2 w-2 rounded-full bg-slate-200"></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
+
+            {/* RIGHT: Context Panel (Desktop Only, conditional rendering) */}
+            {activeChat && (
+                <RightPanel 
+                    chat={activeChat}
+                    leaseData={currentLeaseData}
+                    lang={lang}
+                    handlers={leaseHandlers}
+                    isOpen={isSidebarOpen}
+                />
+            )}
         </div>
     );
 };
