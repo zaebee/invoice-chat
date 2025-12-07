@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { LeaseData, Language } from '../../types';
 import InputGroup from '../ui/InputGroup';

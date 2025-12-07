@@ -1,5 +1,3 @@
-
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Eraser, Check } from 'lucide-react';
 import { useIsMobile } from '../../hooks/useIsMobile';
