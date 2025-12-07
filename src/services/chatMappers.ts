@@ -1,4 +1,3 @@
-
 import { ChatMessage, NtfyMessage, MessageType, LeaseStatus } from '../types';
 import { HistoryEvent } from './ownimaApi';
 import { authService } from './authService';

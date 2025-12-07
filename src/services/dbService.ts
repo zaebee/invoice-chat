@@ -102,6 +102,8 @@ export const dbService = {
   
   saveBackup: (sessions: ChatSession[]) => {
     try {
+      if (!sessions || !Array.isArray(sessions)) return;
+      
       // Create lightweight backup (exclude messages content to save space)
       const minimal = sessions.map(s => {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -117,8 +119,10 @@ export const dbService = {
   loadBackup: (): ChatSession[] => {
     try {
       const raw = localStorage.getItem(BACKUP_KEY);
-      return raw ? JSON.parse(raw) : [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
+      console.warn("Failed to load backup", e);
       return [];
     }
   }

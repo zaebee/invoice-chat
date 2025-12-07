@@ -14,7 +14,7 @@ export const useVirtualList = ({ count, getScrollElement, estimateHeight, oversc
   const [viewportHeight, setViewportHeight] = useState(0);
 
   // Resize Observer for items to support dynamic heights
-  const resizeObserver = useMemo(() => new ResizeObserver((entries) => {
+  const itemResizeObserver = useMemo(() => new ResizeObserver((entries) => {
       let updates: Record<number, number> = {};
       let hasUpdates = false;
 
@@ -31,7 +31,6 @@ export const useVirtualList = ({ count, getScrollElement, estimateHeight, oversc
       if (hasUpdates) {
           setSizeMap(prev => {
               const next = { ...prev, ...updates };
-              // Simple check if actually changed to avoid unnecessary re-renders
               if (Object.keys(updates).some(k => prev[Number(k)] !== updates[Number(k)])) {
                   return next;
               }
@@ -40,7 +39,7 @@ export const useVirtualList = ({ count, getScrollElement, estimateHeight, oversc
       }
   }), []);
 
-  // Update Scroll Element & Listeners
+  // Container Resize & Scroll Observer
   useEffect(() => {
     const element = getScrollElement();
     if (!element) return;
@@ -49,30 +48,42 @@ export const useVirtualList = ({ count, getScrollElement, estimateHeight, oversc
         setScrollTop(element.scrollTop);
     };
 
-    const handleResize = () => {
-        setViewportHeight(element.clientHeight);
-    };
+    // Use ResizeObserver for the container to detect visibility changes (display: none -> block)
+    const containerObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+            const newHeight = entry.contentRect.height;
+            if (newHeight !== viewportHeight) {
+                setViewportHeight(newHeight);
+            }
+        }
+    });
 
-    // Initial dimensions
-    setViewportHeight(element.clientHeight);
-    setScrollTop(element.scrollTop);
-
+    containerObserver.observe(element);
     element.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleResize);
+
+    // Initial check
+    if (element.clientHeight !== viewportHeight) {
+        setViewportHeight(element.clientHeight);
+        setScrollTop(element.scrollTop);
+    }
 
     return () => {
         element.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', handleResize);
-        resizeObserver.disconnect();
+        containerObserver.disconnect();
     };
-  }, [getScrollElement, resizeObserver]);
+  }, [getScrollElement, viewportHeight]);
 
   // Measurement Callback Ref to be attached to each item
   const measureElement = useCallback((node: HTMLElement | null) => {
       if (node) {
-          resizeObserver.observe(node);
+          itemResizeObserver.observe(node);
       }
-  }, [resizeObserver]);
+  }, [itemResizeObserver]);
+
+  // Cleanup item observer
+  useEffect(() => {
+      return () => itemResizeObserver.disconnect();
+  }, [itemResizeObserver]);
 
   // Calculate Offsets and Total Height
   const { items, totalHeight } = useMemo(() => {
