@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
@@ -144,7 +145,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
                 {/* EXPANDABLE FILTER PANEL */}
                 {showFilters && (
-                    <div className="pt-1 pb-2 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    <div className="pt-1 pb-2 space-y-3">
                         {/* Sort Options */}
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0">{t('lbl_sort_by', lang)}</span>
@@ -325,7 +326,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                     {isMenuOpen && (
                                         <div 
                                             ref={menuRef} 
-                                            className="absolute top-10 right-4 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-black/5"
+                                            className="absolute top-10 right-4 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden origin-top-right ring-1 ring-black/5"
                                         >
                                             <div className="p-1 space-y-0.5">
                                                 {chat.unreadCount > 0 ? (

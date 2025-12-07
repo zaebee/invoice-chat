@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
@@ -210,7 +211,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         </button>
 
                         {isMenuOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 origin-top-right ring-1 ring-black/5">
                                 <div className="p-1.5 space-y-0.5">
                                     <button 
                                         onClick={() => { setActiveTab('chat'); setIsMenuOpen(false); }}

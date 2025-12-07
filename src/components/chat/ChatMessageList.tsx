@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus } from '../../types';
@@ -103,7 +104,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         )}
 
                         {msg.type === 'system' ? (
-                            <div className="w-full flex flex-col items-center my-4 px-2 md:px-12 animate-in fade-in zoom-in duration-300">
+                            <div className="w-full flex flex-col items-center my-4 px-2 md:px-12">
                                 <div className="flex items-center w-full gap-3 mb-2">
                                     <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
                                     <div className="shrink-0">
@@ -144,7 +145,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                                 {t('expires_in', lang)} {deadline.timeLeft}
                                             </div>
                                         )}
-                                        <div className="flex gap-2 md:gap-3 animate-in zoom-in duration-300">
+                                        <div className="flex gap-2 md:gap-3">
                                             <button onClick={onConfirm} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95"><ThumbsUp size={14} /> {t('btn_confirm', lang)}</button>
                                             <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 rounded-xl text-xs font-bold shadow-sm active:scale-95"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
                                         </div>
@@ -152,7 +153,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                 )}
                             </div>
                         ) : (
-                            <div className={`message-wrapper flex gap-2 md:gap-3 max-w-[90%] md:max-w-[70%] animate-in fade-in slide-in-from-bottom-2 duration-200 ${msg.senderId === 'me' ? 'self-end flex-row-reverse' : 'self-start'}`} data-id={msg.id} data-status={msg.status} data-sender={msg.senderId}>
+                            <div className={`message-wrapper flex gap-2 md:gap-3 max-w-[90%] md:max-w-[70%] ${msg.senderId === 'me' ? 'self-end flex-row-reverse' : 'self-start'}`} data-id={msg.id} data-status={msg.status} data-sender={msg.senderId}>
                                 {msg.senderId !== 'me' && (
                                     <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 flex items-center justify-center text-[10px] md:text-xs font-bold text-slate-600 dark:text-slate-400 shadow-sm mt-auto overflow-hidden">
                                         {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" /> : currentUser.name[0]}
