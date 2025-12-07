@@ -160,7 +160,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
             );
 
             // 4. Merge & Sort
+            
+            // Create Synthetic Summary Message
+            const createdTime = leaseData.createdDate ? new Date(leaseData.createdDate).getTime() : Date.now();
+            const summaryMessage: ChatMessage = {
+                id: `sys_summary_${leaseData.reservationId}`,
+                senderId: 'system',
+                text: `Reservation Details\n📅 ${leaseData.pickup.date} -> ${leaseData.dropoff.date}\n💰 ${leaseData.pricing.total.toLocaleString()} ${leaseData.pricing.currency || 'THB'}`,
+                timestamp: createdTime - 1, // Ensure it appears before "Reservation created via Web" if timestamps match exactly
+                type: 'system',
+                status: 'read'
+            };
+
             const allMessages = [
+                summaryMessage,
                 ...historyEvents.map(h => historyToChatMessage(h)),
                 ...ntfyData.map((n: any) => {
                     const local = localMsgMap.get(n.id);

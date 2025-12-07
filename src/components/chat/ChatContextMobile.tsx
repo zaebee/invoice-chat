@@ -23,7 +23,7 @@ export const ChatContextMobile: React.FC<ChatContextMobileProps> = ({ leaseData,
 
     return (
         <div className="block md:hidden bg-slate-50/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 z-10 shadow-sm">
-            {/* Row 1: Vehicle & Status */}
+            {/* Row 1: Vehicle & Price */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className="p-1.5 bg-white rounded-lg border border-slate-200 text-slate-500 shrink-0 shadow-sm">
@@ -38,7 +38,10 @@ export const ChatContextMobile: React.FC<ChatContextMobileProps> = ({ leaseData,
                         </span>
                     </div>
                 </div>
-                <StatusBadge status={leaseData.status || 'pending'} lang={lang} />
+                <div className="text-right">
+                    <span className="block font-bold text-slate-800 text-sm">{leaseData.pricing.total.toLocaleString()} {leaseData.pricing.currency || 'THB'}</span>
+                    <StatusBadge status={leaseData.status || 'pending'} lang={lang} className="justify-end mt-1" />
+                </div>
             </div>
 
             {/* Row 2: Timeline & Deadline */}

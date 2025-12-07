@@ -99,7 +99,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                 <div className="flex items-start gap-3 w-full">
                                     <div className="w-full flex flex-col items-center">
                                         <span className="text-[9px] text-slate-400 font-mono mb-1">{formatTime(msg.timestamp)}</span>
-                                        {msg.text && <p className="text-[11px] md:text-xs text-slate-500 italic text-center max-w-xs leading-snug">{msg.text}</p>}
+                                        {msg.text && <p className="text-[11px] md:text-xs text-slate-500 italic text-center max-w-xs leading-snug whitespace-pre-wrap">{msg.text}</p>}
                                         {msg.metadata?.status === 'confirmation_owner' && leaseStatus !== 'confirmed' && leaseStatus !== 'rejected' && (
                                             <div className="mt-2 w-full flex flex-col items-center">
                                                 {deadline && deadline.hasDeadline && !deadline.isExpired && (
