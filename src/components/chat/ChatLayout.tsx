@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -48,6 +47,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     useEffect(() => {
         if (!isHydrated) hydrate();
+        if (isHydrated) {
+            // Trigger resize to fix virtual list height on mobile after hydration
+            window.dispatchEvent(new Event('resize'));
+        }
     }, [isHydrated, hydrate]);
     
     useEffect(() => {
@@ -108,7 +111,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     return (
         <div className="flex h-full bg-white md:rounded-xl overflow-hidden md:border border-slate-200 md:shadow-sm relative">
-            <div className={`flex h-full transition-transform duration-300 ease-out will-change-transform ${
+            <div className={`flex h-full shrink-0 transition-transform duration-300 ease-out will-change-transform ${
                 isMobile ? 'w-[200%]' : 'w-full'
             } ${
                 isMobile && mobileView === 'room' ? '-translate-x-1/2' : 'translate-x-0'
@@ -116,12 +119,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
                 {/* LEFT: Sidebar List */}
                 <div className={`flex flex-col bg-slate-50 relative shrink-0 ${
-                    isMobile ? 'w-1/2 border-r-0' : 'w-80 border-r border-slate-200'
+                    isMobile ? 'w-1/2 border-r-0' : 'w-80 border-r border-slate-200 shrink-0'
                 }`}>
                     <ChatSidebar 
                         sessions={sessions}
                         activeId={currentActiveId}
-                        isLoading={isLoading}
+                        isLoading={isLoading || !isHydrated}
                         onSelect={handleChatSelect}
                         lang={lang}
                     />

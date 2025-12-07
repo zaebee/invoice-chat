@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
@@ -139,7 +138,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <div className="h-14 md:h-16 border-b border-slate-200 flex justify-between items-center px-4 md:px-6 shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
                 <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     {isMobile && (
-                        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
+                        <button onClick={onBack} className="-ml-2 p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors shrink-0">
                             <ArrowLeft size={20} />
                         </button>
                     )}
