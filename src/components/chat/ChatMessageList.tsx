@@ -87,7 +87,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     };
 
     return (
-        <div className="flex-1 px-4 py-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 overscroll-contain">
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 overscroll-contain">
             {messages.map((msg: ChatMessage, index: number) => {
                 const prevMsg = index > 0 ? messages[index - 1] : null;
                 const isDifferentDay = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();

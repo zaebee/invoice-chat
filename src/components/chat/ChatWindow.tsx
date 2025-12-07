@@ -135,9 +135,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
             {/* HEADER */}
-            <div className="h-14 md:h-16 border-b border-slate-200 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
+            <div className="h-14 md:h-16 border-b border-slate-200 flex justify-between items-center px-4 md:px-6 shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
                 <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    <button onClick={onBack} className="md:hidden p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors shrink-0 -ml-2">
+                    <button onClick={onBack} className="md:hidden p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors shrink-0">
                         <ArrowLeft size={20} />
                     </button>
                     
@@ -314,7 +314,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
             {/* INPUT AREA (Only in Chat) */}
             {activeTab === 'chat' && (
-                <div className="p-2 md:p-4 border-t border-slate-200 shrink-0 bg-white z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+                <div className="p-3 md:p-4 border-t border-slate-200 shrink-0 bg-white z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
                     <form className="relative flex items-center gap-2" onSubmit={handleSend} autoComplete="off">
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors md:hidden">
                             <ImageIcon size={22} />
