@@ -13,6 +13,7 @@ import { LoginModal } from '../components/modals/LoginModal';
 import { AiModal } from '../components/modals/AiModal';
 import { ChatLayout } from '../components/chat/ChatLayout';
 import { LanguageSelector } from '../components/ui/LanguageSelector';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 import { useInvoice } from '../hooks/useInvoice';
 import { useLease } from '../hooks/useLease';
@@ -129,23 +130,23 @@ export default function EditorPage() {
   };
 
   const NavPills = () => (
-     <div className="flex bg-slate-100 p-1 rounded-xl">
+     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
         <button 
             onClick={() => setDocType('chat')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'chat' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'chat' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <MessageCircle size={16} /> {t('switch_chat', lang)}
         </button>
         <button 
             onClick={() => setDocType('lease')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'lease' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'lease' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <Car size={16} /> {t('switch_lease', lang)}
         </button>
         {showInvoiceTab && (
          <button 
             onClick={() => setDocType('invoice')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'invoice' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'invoice' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <FileText size={16} /> {t('switch_invoice', lang)}
         </button>
@@ -154,10 +155,10 @@ export default function EditorPage() {
   );
 
   return (
-    <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
+    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-200">
         
         {/* UNIFIED APP HEADER */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-50 relative shadow-sm">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 shrink-0 z-50 relative shadow-sm">
              {/* Left: Logo + AI + Nav (Desktop) */}
              <div className="flex items-center gap-4 md:gap-6">
                  <Link 
@@ -165,12 +166,12 @@ export default function EditorPage() {
                     className="hover:opacity-70 transition-opacity flex items-center"
                     onClick={() => setDocType('chat')}
                  >
-                    <BrandLogo className="text-slate-800 h-6" />
+                    <BrandLogo className="text-slate-800 dark:text-white h-6" />
                  </Link>
                  
                  <button 
                     onClick={ai.open}
-                    className="flex items-center gap-2 text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 font-bold tracking-wide"
+                    className="flex items-center gap-2 text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900 font-bold tracking-wide"
                 >
                     <Wand2 size={14} /> AI
                 </button>
@@ -184,14 +185,15 @@ export default function EditorPage() {
              {/* Right: Actions */}
              <div className="flex items-center gap-3">
                  {/* Mobile Nav Icons (Simple) */}
-                 <div className="md:hidden flex gap-1 bg-slate-100 p-1 rounded-lg">
-                    <button onClick={() => setDocType('chat')} className={`p-2 rounded-md ${docType === 'chat' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><MessageCircle size={18} /></button>
-                    <button onClick={() => setDocType('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><Car size={18} /></button>
+                 <div className="md:hidden flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                    <button onClick={() => setDocType('chat')} className={`p-2 rounded-md ${docType === 'chat' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><MessageCircle size={18} /></button>
+                    <button onClick={() => setDocType('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Car size={18} /></button>
                     {showInvoiceTab && (
-                    <button onClick={() => setDocType('invoice')} className={`p-2 rounded-md ${docType === 'invoice' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><FileText size={18} /></button>
+                    <button onClick={() => setDocType('invoice')} className={`p-2 rounded-md ${docType === 'invoice' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><FileText size={18} /></button>
                     )}
                  </div>
 
+                 <ThemeToggle />
                  <LanguageSelector currentLang={lang} onLanguageChange={setLang} />
              </div>
         </header>
@@ -211,16 +213,16 @@ export default function EditorPage() {
                       
                       {/* Mobile Tabs for Editor/Preview */}
                       {isMobile && (
-                        <div className="sticky top-0 z-20 bg-white border-b border-slate-200 flex shadow-sm">
+                        <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex shadow-sm">
                             <button 
                                 onClick={() => setMobileTab('edit')}
-                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'edit' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-400'}`}
+                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'edit' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500'}`}
                             >
                                 {t('mobile_editor_tab', lang)}
                             </button>
                             <button 
                                 onClick={() => setMobileTab('preview')}
-                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'preview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-400'}`}
+                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'preview' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500'}`}
                             >
                                 {t('mobile_preview_tab', lang)}
                             </button>
@@ -228,18 +230,18 @@ export default function EditorPage() {
                       )}
 
                       {/* SIDEBAR (Form) */}
-                      <div className={`w-full md:w-1/3 bg-white border-r border-slate-200 h-full flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 ${isMobile && mobileTab !== 'edit' ? 'hidden' : 'flex'}`}>
+                      <div className={`w-full md:w-1/3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-full flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 ${isMobile && mobileTab !== 'edit' ? 'hidden' : 'flex'}`}>
                            <div className="p-4 md:p-8 overflow-y-auto h-full custom-scrollbar">
                                {/* Title & Reset */}
                                <div className="flex justify-between items-center mb-8">
-                                   <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                                   <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
                                        {docType === 'invoice' ? t('invoice_editor', lang) : t('lease_editor', lang)}
                                    </h2>
                                    
                                    {docType === 'invoice' && (
                                         <button 
                                             onClick={invoice.reset} 
-                                            className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-slate-50"
+                                            className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
                                             title={t('reset', lang)}
                                         >
                                             <RotateCcw size={18} />
@@ -261,7 +263,7 @@ export default function EditorPage() {
                       </div>
 
                       {/* PREVIEW */}
-                      <div className={`w-full md:w-2/3 bg-slate-800 p-4 md:p-8 flex-col items-center overflow-hidden relative ${isMobile && mobileTab !== 'preview' ? 'hidden' : 'flex'}`}>
+                      <div className={`w-full md:w-2/3 bg-slate-800 dark:bg-black p-4 md:p-8 flex-col items-center overflow-hidden relative ${isMobile && mobileTab !== 'preview' ? 'hidden' : 'flex'}`}>
                            
                            {/* Preview Header */}
                            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 z-10 shrink-0">

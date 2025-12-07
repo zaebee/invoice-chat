@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Globe, Check } from 'lucide-react';
 import { Language } from '../../types';
@@ -35,7 +34,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ currentLang,
     <div className={`relative ${className}`} ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-full transition-colors flex items-center gap-1.5"
+        className="p-2 text-slate-400 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors flex items-center gap-1.5"
         title="Select Language"
       >
         <Globe size={20} />
@@ -43,7 +42,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ currentLang,
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-[60] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[60] animate-in fade-in zoom-in-95 duration-200">
           <div className="p-1 space-y-0.5">
             {LANGUAGES.map((lang) => (
               <button
@@ -53,14 +52,16 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ currentLang,
                   setIsOpen(false);
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  currentLang === lang.code ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                  currentLang === lang.code 
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-lg leading-none filter drop-shadow-sm">{lang.flag}</span>
                   <span>{lang.label}</span>
                 </div>
-                {currentLang === lang.code && <Check size={14} className="text-blue-600" />}
+                {currentLang === lang.code && <Check size={14} className="text-blue-600 dark:text-blue-400" />}
               </button>
             ))}
           </div>
