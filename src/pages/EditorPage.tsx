@@ -160,7 +160,13 @@ export default function EditorPage() {
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30 shadow-sm">
              {/* Left: Logo + AI + Nav (Desktop) */}
              <div className="flex items-center gap-4 md:gap-6">
-                 <BrandLogo className="text-slate-800 h-6" />
+                 <Link 
+                    to="/" 
+                    className="hover:opacity-70 transition-opacity flex items-center"
+                    onClick={() => setDocType('chat')}
+                 >
+                    <BrandLogo className="text-slate-800 h-6" />
+                 </Link>
                  
                  <button 
                     onClick={ai.open}
@@ -170,8 +176,8 @@ export default function EditorPage() {
                 </button>
 
                  <div className="hidden md:block">
-                     {/* Show nav pills globally so users can switch modes easily */}
-                     <NavPills />
+                     {/* Hide global nav if in chat mode, assuming local nav takes over */}
+                     {docType !== 'chat' && <NavPills />}
                  </div>
              </div>
 
