@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -47,7 +48,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
     useEffect(() => {
         if (!isHydrated) hydrate();
         if (isHydrated) {
-            // Trigger resize to fix virtual list height on mobile after hydration
+            // Trigger resize to fix layout on mobile after hydration
             window.dispatchEvent(new Event('resize'));
         }
     }, [isHydrated, hydrate]);
