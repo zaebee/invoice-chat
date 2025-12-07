@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE } from '../../types';
-import { useIsMobile } from '../../hooks/useIsMobile';
 import { useChatStore } from '../../stores/chatStore';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -30,7 +29,6 @@ interface ChatWindowProps {
 export const ChatWindow: React.FC<ChatWindowProps> = ({ 
     chat, leaseData, lang, onBack, onToggleSidebar, isSidebarOpen 
 }) => {
-    const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState<'chat' | 'lease' | 'invoice'>('chat');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
