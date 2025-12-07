@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Globe, Share2, MessageCircle } from 'lucide-react';
@@ -54,7 +52,6 @@ export default function EditorPage() {
     }
     
     // Cleanup: Disconnect chat when component unmounts or ID changes
-    // This prevents SSE connection leaks in the background
     return () => {
         chatStore.disconnect();
     };
@@ -161,10 +158,19 @@ export default function EditorPage() {
         
         {/* UNIFIED APP HEADER */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30 shadow-sm">
-             {/* Left: Logo + Nav (Desktop) */}
-             <div className="flex items-center gap-6">
+             {/* Left: Logo + AI + Nav (Desktop) */}
+             <div className="flex items-center gap-4 md:gap-6">
                  <BrandLogo className="text-slate-800 h-6" />
+                 
+                 <button 
+                    onClick={ai.open}
+                    className="flex items-center gap-2 text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 font-bold tracking-wide"
+                >
+                    <Wand2 size={14} /> AI
+                </button>
+
                  <div className="hidden md:block">
+                     {/* Show nav pills globally so users can switch modes easily */}
                      <NavPills />
                  </div>
              </div>
@@ -187,16 +193,6 @@ export default function EditorPage() {
                 >
                     <Globe size={20} />
                 </button>
-                
-                {/* AI Button (only for editor modes) */}
-                {docType !== 'chat' && (
-                     <button 
-                        onClick={ai.open}
-                        className="flex items-center gap-2 text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 font-bold tracking-wide"
-                    >
-                        <Wand2 size={14} /> AI
-                    </button>
-                )}
              </div>
         </header>
 
