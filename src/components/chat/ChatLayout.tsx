@@ -110,7 +110,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
         <div className="flex h-full bg-white md:rounded-xl overflow-hidden md:border border-slate-200 md:shadow-sm relative">
             
             {/* LEFT: Sidebar List */}
-            <div className={`flex-col bg-slate-50 relative border-r-0 md:border-r border-slate-200 shrink-0 
+            <div className={`flex-col bg-slate-50 relative border-r-0 md:border-r border-slate-200 shrink-0 h-full
                 ${mobileView === 'list' ? 'flex w-full' : 'hidden'} 
                 md:flex md:w-80`}>
                 <ChatSidebar 
