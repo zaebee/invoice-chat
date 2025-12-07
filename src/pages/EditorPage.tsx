@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
-import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Globe, Share2, MessageCircle } from 'lucide-react';
+import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Share2, MessageCircle } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 
 import InvoicePreview from '../components/InvoicePreview';
@@ -12,13 +13,15 @@ import LeaseForm from '../components/forms/LeaseForm';
 import { LoginModal } from '../components/modals/LoginModal';
 import { AiModal } from '../components/modals/AiModal';
 import { ChatLayout } from '../components/chat/ChatLayout';
+import { LanguageSelector } from '../components/ui/LanguageSelector';
 
 import { useInvoice } from '../hooks/useInvoice';
 import { useLease } from '../hooks/useLease';
 import { useAiAssistant } from '../hooks/useAiAssistant';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useLanguage } from '../hooks/useLanguage';
 import { useChatStore } from '../stores/chatStore';
-import { Language, InvoiceData, LeaseData } from '../types';
+import { InvoiceData, LeaseData } from '../types';
 import { t } from '../utils/i18n';
 import { BrandLogo } from '../components/ui/BrandLogo';
 
@@ -27,9 +30,11 @@ type DocType = 'invoice' | 'lease' | 'chat';
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const [docType, setDocType] = useState<DocType>('chat');
-  const [lang, setLang] = useState<Language>('en');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // Language Hook
+  const { lang, setLang } = useLanguage();
   
   // Mobile UI State
   const isMobile = useIsMobile();
@@ -116,10 +121,6 @@ export default function EditorPage() {
     }
   };
 
-  const toggleLang = () => {
-      setLang(prev => prev === 'ru' ? 'en' : 'ru');
-  };
-
   const getLeasePreviewLink = () => {
       let link = `/preview/lease/${lease.data.reservationId}`;
       if (lease.data.contractTemplateId) {
@@ -192,13 +193,7 @@ export default function EditorPage() {
                     )}
                  </div>
 
-                 <button
-                    onClick={toggleLang}
-                    className="text-slate-400 hover:text-blue-500 transition-colors p-2 rounded-full hover:bg-slate-100"
-                    title="Switch Language"
-                >
-                    <Globe size={20} />
-                </button>
+                 <LanguageSelector currentLang={lang} onLanguageChange={setLang} />
              </div>
         </header>
 

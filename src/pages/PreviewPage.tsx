@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PDFViewer, pdf } from '@react-pdf/renderer';
@@ -7,8 +8,9 @@ import { authService } from '../services/authService';
 import { LeasePdf } from '../components/LeasePdf';
 import LeasePreview from '../components/LeasePreview';
 import { LoginModal } from '../components/modals/LoginModal';
-import { LeaseData, Language } from '../types';
+import { LeaseData } from '../types';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useLanguage } from '../hooks/useLanguage';
 import { BrandLogo } from '../components/ui/BrandLogo';
 import { t } from '../utils/i18n';
 
@@ -19,7 +21,9 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [lang] = useState<Language>('en');
+  
+  // Use persistent language hook
+  const { lang } = useLanguage('en');
   
   // Server Side Rendering State
   const templateId = searchParams.get('template_id');
