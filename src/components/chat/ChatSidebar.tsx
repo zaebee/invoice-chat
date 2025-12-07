@@ -1,7 +1,6 @@
 
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, X } from 'lucide-react';
+import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import { SwipeableRow } from '../ui/SwipeableRow';
