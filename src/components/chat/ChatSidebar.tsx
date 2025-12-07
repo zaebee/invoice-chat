@@ -1,12 +1,15 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle } from 'lucide-react';
-import { ChatSession, Language } from '../../types';
+
+
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, X } from 'lucide-react';
+import { ChatSession, Language, LeaseStatus } from '../../types';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import { SwipeableRow } from '../ui/SwipeableRow';
 import { StatusBadge } from './StatusBadge';
 import { t } from '../../utils/i18n';
 import { humanizeTime } from '../../utils/dateUtils';
 import { useChatStore } from '../../stores/chatStore';
+import { STATUS_CONFIG } from './ChatUtils';
 
 interface ChatSidebarProps {
     sessions: ChatSession[];
@@ -20,6 +23,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     sessions, activeId, isLoading, onSelect, lang 
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterStatus, setFilterStatus] = useState<LeaseStatus | 'all'>('all');
+    const [sortBy, setSortBy] = useState<'date' | 'name'>('date');
+    const [showFilters, setShowFilters] = useState(false);
+    
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -78,11 +85,22 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         }
     };
 
-    const filteredSessions = sessions.filter((s: ChatSession) => {
-        const matchesSearch = !searchQuery || s.user.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.includes(searchQuery);
-        const isVisible = searchQuery ? true : !s.isArchived;
-        return matchesSearch && isVisible;
-    });
+    const filteredSessions = useMemo(() => {
+        let result = sessions.filter((s: ChatSession) => {
+            const matchesSearch = !searchQuery || s.user.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.includes(searchQuery);
+            const isVisible = searchQuery ? true : !s.isArchived;
+            const matchesStatus = filterStatus === 'all' || s.reservationSummary?.status === filterStatus;
+            return matchesSearch && isVisible && matchesStatus;
+        });
+
+        return result.sort((a, b) => {
+            if (sortBy === 'name') {
+                return a.user.name.localeCompare(b.user.name);
+            }
+            // default 'date'
+            return b.lastMessageTime - a.lastMessageTime;
+        });
+    }, [sessions, searchQuery, filterStatus, sortBy]);
 
     const { virtualItems, totalHeight, measureElement } = useVirtualList({
         count: filteredSessions.length,
@@ -91,29 +109,105 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         overscan: 5
     });
 
+    const isFilterActive = filterStatus !== 'all' || sortBy !== 'date';
+
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors duration-200">
-            {/* SEARCH BAR */}
-            <div className="p-3 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
-                <form onSubmit={handleSearchSubmit} className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 -m-[1px] blur-[1px]" />
-                    <div className="relative flex items-center bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl group-focus-within:bg-white dark:group-focus-within:bg-slate-900 group-focus-within:border-transparent group-focus-within:shadow-md transition-all duration-300 overflow-hidden">
-                        <div className="pl-3 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-500 transition-colors">
-                            <Search size={16} className="group-focus-within:hidden" />
-                            <Sparkles size={16} className="hidden group-focus-within:block animate-pulse" />
+            {/* SEARCH & FILTER BAR */}
+            <div className="p-3 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                    <form onSubmit={handleSearchSubmit} className="relative group flex-1">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 -m-[1px] blur-[1px]" />
+                        <div className="relative flex items-center bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl group-focus-within:bg-white dark:group-focus-within:bg-slate-900 group-focus-within:border-transparent group-focus-within:shadow-md transition-all duration-300 overflow-hidden">
+                            <div className="pl-3 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                                <Search size={16} className="group-focus-within:hidden" />
+                                <Sparkles size={16} className="hidden group-focus-within:block animate-pulse" />
+                            </div>
+                            <input 
+                                type="text" 
+                                placeholder={t('chat_search', lang)}
+                                className="w-full pl-2 pr-3 py-2.5 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
-                        <input 
-                            type="text" 
-                            placeholder={t('chat_search', lang)}
-                            className="w-full pl-2 pr-3 py-2.5 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        <div className="mr-2 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-500 opacity-0 group-focus-within:opacity-100 transition-opacity scale-90 hidden sm:block">
-                            <span className="text-[10px] font-bold font-mono">/</span>
+                    </form>
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-2.5 rounded-xl border transition-all ${
+                            showFilters || isFilterActive 
+                                ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' 
+                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                    >
+                        <ListFilter size={18} />
+                    </button>
+                </div>
+
+                {/* EXPANDABLE FILTER PANEL */}
+                {showFilters && (
+                    <div className="pt-1 pb-2 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                        {/* Sort Options */}
+                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0">{t('lbl_sort_by', lang)}</span>
+                            <button 
+                                onClick={() => setSortBy('date')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                                    sortBy === 'date' 
+                                        ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' 
+                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                                }`}
+                            >
+                                <ArrowUpDown size={12} /> {t('sort_date', lang)}
+                            </button>
+                            <button 
+                                onClick={() => setSortBy('name')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                                    sortBy === 'name' 
+                                        ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm' 
+                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                                }`}
+                            >
+                                <ArrowUpDown size={12} /> {t('sort_name', lang)}
+                            </button>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{t('lbl_filter_status', lang)}</span>
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                <button 
+                                    onClick={() => setFilterStatus('all')}
+                                    className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all whitespace-nowrap ${
+                                        filterStatus === 'all'
+                                            ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-800 dark:border-slate-100'
+                                            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                    }`}
+                                >
+                                    {t('filter_all', lang)}
+                                </button>
+                                {['pending', 'confirmed', 'collected', 'completed', 'overdue', 'cancelled'].map((status) => {
+                                    const s = status as LeaseStatus;
+                                    const config = STATUS_CONFIG[s];
+                                    const isActive = filterStatus === s;
+                                    return (
+                                        <button 
+                                            key={s}
+                                            onClick={() => setFilterStatus(s)}
+                                            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                                isActive 
+                                                    ? `${config.bg} ${config.text} border-transparent ring-1 ring-inset ring-black/5 dark:ring-white/10` 
+                                                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100'
+                                            }`}
+                                        >
+                                            {config.icon} {t(config.labelKey, lang)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
-                </form>
+                )}
             </div>
 
             {/* LIST */}
@@ -126,8 +220,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 )}
                 
                 {filteredSessions.length === 0 && !isLoading && (
-                    <div className="p-8 text-center text-xs text-slate-400 italic h-full flex items-center justify-center">
-                        {t('no_active_chats', lang)}
+                    <div className="p-8 text-center text-xs text-slate-400 italic h-full flex flex-col items-center justify-center gap-2">
+                        <span>{t('no_active_chats', lang)}</span>
+                        {isFilterActive && (
+                            <button 
+                                onClick={() => { setFilterStatus('all'); setSortBy('date'); }}
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                {t('reset', lang)} Filters
+                            </button>
+                        )}
                     </div>
                 )}
 

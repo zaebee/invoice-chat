@@ -154,6 +154,11 @@ export type TranslationKey =
   | 'confirm_delete_chat'
   | 'no_active_chats'
   | 'loading_chats'
+  | 'lbl_sort_by'
+  | 'lbl_filter_status'
+  | 'sort_date'
+  | 'sort_name'
+  | 'filter_all'
   // Chat Window
   | 'timeline_title'
   | 'no_dates'
@@ -365,6 +370,11 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     confirm_delete_chat: 'Вы уверены, что хотите удалить этот чат? Это действие необратимо.',
     no_active_chats: 'Нет активных чатов.',
     loading_chats: 'Загрузка чатов...',
+    lbl_sort_by: 'Сортировка',
+    lbl_filter_status: 'Статус',
+    sort_date: 'Дата',
+    sort_name: 'Имя',
+    filter_all: 'Все',
 
     // Chat Window
     timeline_title: 'Таймлайн',
@@ -580,6 +590,11 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     confirm_delete_chat: 'Are you sure you want to delete this conversation?',
     no_active_chats: 'No active chats found.',
     loading_chats: 'Loading chats...',
+    lbl_sort_by: 'Sort By',
+    lbl_filter_status: 'Filter Status',
+    sort_date: 'Date',
+    sort_name: 'Name',
+    filter_all: 'All',
 
     // Chat Window
     timeline_title: 'Timeline',
@@ -779,6 +794,11 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     confirm_delete_chat: 'คุณแน่ใจหรือไม่ว่าต้องการลบการสนทนานี้?',
     no_active_chats: 'ไม่พบแชทที่ใช้งานอยู่',
     loading_chats: 'กำลังโหลดแชท...',
+    lbl_sort_by: 'เรียงตาม',
+    lbl_filter_status: 'กรองสถานะ',
+    sort_date: 'วันที่',
+    sort_name: 'ชื่อ',
+    filter_all: 'ทั้งหมด',
     timeline_title: 'ไทม์ไลน์',
     no_dates: 'ไม่ได้กำหนดวันที่',
     expires_in: 'หมดอายุใน',
@@ -968,6 +988,11 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     confirm_delete_chat: 'Bạn có chắc chắn muốn xóa cuộc trò chuyện này không?',
     no_active_chats: 'Không tìm thấy cuộc trò chuyện nào.',
     loading_chats: 'Đang tải trò chuyện...',
+    lbl_sort_by: 'Sắp xếp',
+    lbl_filter_status: 'Lọc trạng thái',
+    sort_date: 'Ngày',
+    sort_name: 'Tên',
+    filter_all: 'Tất cả',
     timeline_title: 'Dòng thời gian',
     no_dates: 'Chưa chọn ngày',
     expires_in: 'Hết hạn trong',
@@ -1157,6 +1182,11 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     confirm_delete_chat: 'Apakah Anda yakin ingin menghapus percakapan ini?',
     no_active_chats: 'Tidak ada obrolan aktif ditemukan.',
     loading_chats: 'Memuat obrolan...',
+    lbl_sort_by: 'Urutkan',
+    lbl_filter_status: 'Filter Status',
+    sort_date: 'Tanggal',
+    sort_name: 'Nama',
+    filter_all: 'Semua',
     timeline_title: 'Linimasa',
     no_dates: 'Tidak ada tanggal diatur',
     expires_in: 'Berakhir dalam',
