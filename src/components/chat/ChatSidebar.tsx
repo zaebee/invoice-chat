@@ -7,6 +7,7 @@ import { StatusBadge } from './StatusBadge';
 import { t } from '../../utils/i18n';
 import { humanizeTime } from '../../utils/dateUtils';
 import { useChatStore } from '../../stores/chatStore';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface ChatSidebarProps {
     sessions: ChatSession[];
@@ -24,6 +25,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const listRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const { archiveSession, deleteSession, markAsRead, markAsUnread } = useChatStore();
+    const isMobile = useIsMobile();
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -84,9 +86,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         return matchesSearch && isVisible;
     });
 
-    // Mobile Optimization: Disable virtualization for small lists (< 50 items)
-    // This fixes issues where the virtual list calculates 0 height when hidden/toggled on mobile
-    const shouldVirtualize = filteredSessions.length > 50;
+    // Mobile Optimization: Disable virtualization for all mobile usage or small lists (< 50 items)
+    // This provides robust rendering on mobile where container heights can be unstable during view transitions
+    const shouldVirtualize = !isMobile && filteredSessions.length > 50;
 
     const { virtualItems, totalHeight, measureElement } = useVirtualList({
         count: filteredSessions.length,
