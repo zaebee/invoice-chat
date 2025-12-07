@@ -47,10 +47,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     useEffect(() => {
         if (!isHydrated) hydrate();
-        if (isHydrated) {
-            // Trigger resize to fix layout on mobile after hydration
-            window.dispatchEvent(new Event('resize'));
-        }
     }, [isHydrated, hydrate]);
     
     // Sync mobile view state with route
