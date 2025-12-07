@@ -111,7 +111,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     return (
         <div className="flex h-full bg-white dark:bg-slate-900 md:rounded-xl overflow-hidden md:border border-slate-200 dark:border-slate-800 md:shadow-sm relative transition-colors duration-200">
-            <div className={`flex h-full transition-transform duration-300 ease-out will-change-transform ${
+            <div className={`flex h-full ${
                 isMobile ? 'w-[200%]' : 'w-full'
             } ${
                 isMobile && mobileView === 'room' ? '-translate-x-1/2' : 'translate-x-0'
