@@ -47,6 +47,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
 
     useEffect(() => {
         if (!isHydrated) hydrate();
+        if (isHydrated) {
+            // Trigger resize to fix virtual list height on mobile after hydration
+            window.dispatchEvent(new Event('resize'));
+        }
     }, [isHydrated, hydrate]);
     
     useEffect(() => {
@@ -120,7 +124,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                     <ChatSidebar 
                         sessions={sessions}
                         activeId={currentActiveId}
-                        isLoading={isLoading}
+                        isLoading={isLoading || !isHydrated}
                         onSelect={handleChatSelect}
                         lang={lang}
                     />
