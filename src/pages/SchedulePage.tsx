@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../stores/chatStore';
 import { Language, ChatSession } from '../types';
 import { t } from '../utils/i18n';
