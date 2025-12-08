@@ -71,39 +71,55 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
             // A. Calculate Raw Positions (Time -> Pixels)
             const items = groupSessions.map(session => {
                 const summary = session.reservationSummary;
+                const status = summary?.status || 'pending';
                 
                 // Determine Start/End dates with fallbacks
                 let start = summary?.pickupDate ? new Date(summary.pickupDate) : new Date(session.lastMessageTime);
                 let end = summary?.dropoffDate ? new Date(summary.dropoffDate) : new Date(start.getTime() + (3 * 24 * 60 * 60 * 1000)); // Default 3 days
 
-                // Normalize to start of day for grid alignment
-                const sTime = new Date(start); sTime.setHours(0,0,0,0);
-                const eTime = new Date(end); eTime.setHours(0,0,0,0);
+                // Handle Overdue: Extend to NOW to show blockage
+                if (status === 'overdue') {
+                    const now = new Date();
+                    if (now > end) end = now;
+                }
 
-                // Calculate duration and offset
-                const startDiffDays = (sTime.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
-                let durationDays = Math.ceil((eTime.getTime() - sTime.getTime()) / (1000 * 60 * 60 * 24));
-                if (durationDays < 1) durationDays = 1;
+                // Normalize boundaries to avoid negative/NaN if bad data
+                if (isNaN(start.getTime())) start = new Date();
+                if (isNaN(end.getTime())) end = new Date(start.getTime() + 86400000);
+
+                // Use exact timestamps for precision
+                const startMs = start.getTime();
+                const endMs = end.getTime();
+
+                // Calculate pixels
+                const startDiffMs = startMs - timelineStart.getTime();
+                const durationMs = endMs - startMs;
+                
+                // Convert ms to pixels (Float)
+                const msPerDay = 1000 * 60 * 60 * 24;
+                const left = (startDiffMs / msPerDay) * DAY_WIDTH;
+                const width = (durationMs / msPerDay) * DAY_WIDTH;
 
                 return {
                     session,
-                    startMs: sTime.getTime(),
-                    endMs: eTime.getTime(),
-                    left: startDiffDays * DAY_WIDTH,
-                    width: durationDays * DAY_WIDTH
+                    startMs,
+                    endMs,
+                    left,
+                    width
                 };
             });
 
-            // B. Sort for Packing (Earliest start, then longest duration)
-            items.sort((a, b) => a.startMs - b.startMs || (b.width - a.width));
+            // B. Sort for Packing (Earliest start)
+            items.sort((a, b) => a.startMs - b.startMs);
 
-            // C. "Tetris" Packing Algorithm (Lane Assignment)
+            // C. "Tetris" Packing Algorithm
             const lanes: number[] = []; // Stores the end time (ms) of the last block in each lane
             
             const bookings: ProcessedSession[] = items.map(item => {
                 let assignedLane = -1;
 
-                // Find the first lane where this item fits
+                // Find the first lane where this item fits (with 30 min buffer for visual gap)
+                // Using 0 buffer allows touching events
                 for (let i = 0; i < lanes.length; i++) {
                     if (lanes[i] <= item.startMs) {
                         assignedLane = i;
@@ -123,13 +139,14 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
                     layout: {
                         lane: assignedLane,
                         left: item.left,
-                        width: item.width
+                        width: Math.max(item.width, 10) // Minimum 10px width
                     }
                 };
             });
 
             // D. Calculate Row Metrics
             const laneCount = Math.max(1, lanes.length);
+            // Dynamic height based on lanes
             const contentHeight = (laneCount * (BAR_HEIGHT + BAR_GAP)) - BAR_GAP;
             const rowHeight = Math.max(MIN_ROW_HEIGHT, contentHeight + (ROW_PADDING * 2));
 
@@ -334,7 +351,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                 className={`absolute rounded-xl border shadow-sm cursor-pointer hover:scale-[1.01] hover:shadow-lg hover:z-20 transition-all flex items-center px-1 pr-2 gap-2 overflow-hidden whitespace-nowrap ${config.bg} ${config.border} dark:brightness-110`}
                                                 style={{ 
                                                     left: Math.max(0, left), 
-                                                    width: Math.max(width - 4, 30),
+                                                    width: Math.max(width - 2, 4), // Small gap on right
                                                     height: BAR_HEIGHT,
                                                     top,
                                                     zIndex: 10 + lane 
