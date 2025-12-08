@@ -1,6 +1,7 @@
 
+
 import { create } from 'zustand';
-import { ChatSession, ChatMessage, LeaseData } from '../types';
+import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
 import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
@@ -25,7 +26,8 @@ interface ChatState {
     // Actions
     hydrate: () => Promise<void>;
     loadChatSession: (reservationId: string) => Promise<void>;
-    analyzeIntent: () => Promise<void>; // New AI Action
+    createLocalSession: (customId: string) => Promise<void>; // New Action
+    analyzeIntent: () => Promise<void>;
     setActiveSession: (id: string) => void;
     sendMessage: (text: string) => Promise<void>;
     sendImage: (file: File) => Promise<void>;
@@ -105,6 +107,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
             abortController.abort();
         }
         set({ activeEventSource: null, abortController: null, aiSuggestion: null });
+    },
+
+    createLocalSession: async (customId: string) => {
+        const { sessions } = get();
+        
+        // Check if exists
+        const existing = sessions.find(s => s.id === customId);
+        if (existing) {
+            set({ activeSessionId: customId, error: null });
+            return;
+        }
+
+        // Initialize empty lease for local draft
+        const today = new Date().toISOString().split('T')[0];
+        const newLease: LeaseData = {
+            ...INITIAL_LEASE,
+            reservationId: customId,
+            source: 'LOCAL_DRAFT',
+            createdDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            pickup: { ...INITIAL_LEASE.pickup, date: today },
+            dropoff: { ...INITIAL_LEASE.dropoff, date: today }
+        };
+
+        const newSession: ChatSession = {
+            id: customId,
+            user: {
+                id: 'new_renter',
+                name: 'New Renter',
+                role: 'Renter',
+                status: 'online',
+                avatar: ''
+            },
+            messages: [],
+            lastMessage: 'Draft created',
+            lastMessageTime: Date.now(),
+            unreadCount: 0,
+            reservationSummary: {
+                vehicleName: 'New Booking',
+                plateNumber: 'TBD',
+                status: 'pending',
+                price: 0,
+                currency: 'THB',
+                pickupDate: today,
+                dropoffDate: today
+            }
+        };
+
+        // Persist and Update State
+        await dbService.saveSession(newSession);
+        
+        set(state => ({
+            sessions: [newSession, ...state.sessions],
+            activeSessionId: customId,
+            leaseContext: newLease,
+            error: null,
+            isLoading: false
+        }));
     },
 
     loadChatSession: async (reservationId: string) => {
@@ -341,12 +400,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
             console.error("Load Chat Error", e);
             // Only update error if this is still the active request
             if (get().currentLoadToken === myToken) {
-                set(state => ({ 
-                    isLoading: false, 
-                    error: state.activeSessionId && state.sessions.find(s => s.id === state.activeSessionId) 
-                        ? null // Hide error if we have data to show
-                        : (e.message || "Failed to load chat")
-                }));
+                // If we have a local session in store, don't show error, just stop loading
+                const localSession = get().sessions.find(s => s.id === reservationId);
+                
+                if (localSession) {
+                    set({ 
+                        isLoading: false, 
+                        // If we have local data but API failed, allow user to work offline
+                        error: null,
+                        leaseContext: {
+                            ...INITIAL_LEASE,
+                            reservationId,
+                            status: localSession.reservationSummary?.status,
+                            // Hydrate context from local summary where possible
+                            vehicle: {
+                                ...INITIAL_LEASE.vehicle,
+                                name: localSession.reservationSummary?.vehicleName || '',
+                                plate: localSession.reservationSummary?.plateNumber || ''
+                            }
+                        }
+                    });
+                } else {
+                    // Genuine 404 or Error for a new ID
+                    set({ 
+                        isLoading: false, 
+                        error: e.message || "Failed to load chat"
+                    });
+                }
             }
         }
     },

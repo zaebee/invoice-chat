@@ -1,6 +1,7 @@
 
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown } from 'lucide-react';
+import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, Plus } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import { SwipeableRow } from '../ui/SwipeableRow';
@@ -29,7 +30,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    const { archiveSession, deleteSession, markAsRead, markAsUnread } = useChatStore();
+    const { archiveSession, deleteSession, markAsRead, markAsUnread, createLocalSession } = useChatStore();
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -56,6 +57,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             onSelect(searchQuery.trim());
             setSearchQuery('');
         }
+    };
+
+    const handleCreateNew = async () => {
+        if (!searchQuery.trim()) return;
+        const newId = searchQuery.trim();
+        await createLocalSession(newId);
+        onSelect(newId);
+        setSearchQuery('');
     };
 
     const toggleMenu = (id: string) => {
@@ -220,14 +229,29 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 
                 {filteredSessions.length === 0 && !isLoading && (
                     <div className="p-8 text-center text-xs text-slate-400 italic h-full flex flex-col items-center justify-center gap-2">
-                        <span>{t('no_active_chats', lang)}</span>
-                        {isFilterActive && (
-                            <button 
-                                onClick={() => { setFilterStatus('all'); setSortBy('date'); }}
-                                className="text-blue-600 dark:text-blue-400 hover:underline"
-                            >
-                                {t('reset', lang)} Filters
-                            </button>
+                        {searchQuery ? (
+                            <>
+                                <p className="mb-2 text-slate-500 dark:text-slate-400">Reservation "{searchQuery}" not found.</p>
+                                <button 
+                                    onClick={handleCreateNew}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-95"
+                                >
+                                    <Plus size={16} />
+                                    Create Booking #{searchQuery}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <span>{t('no_active_chats', lang)}</span>
+                                {isFilterActive && (
+                                    <button 
+                                        onClick={() => { setFilterStatus('all'); setSortBy('date'); }}
+                                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                        {t('reset', lang)} Filters
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 )}

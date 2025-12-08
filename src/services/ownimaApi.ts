@@ -228,57 +228,6 @@ const fetchOwnerProfile = async (ownerId: string, signal?: AbortSignal): Promise
     }
 };
 
-// --- MOCK GENERATOR FOR OFFLINE MODE ---
-const getMockLease = (id: string): Partial<LeaseData> => ({
-    id,
-    reservationId: id,
-    status: 'pending',
-    source: 'OFFLINE_DEMO',
-    createdDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    deadline: Date.now() + 7200000, // +2 hours for mock testing
-    vehicle: { name: 'Demo BMW X1', details: 'SUV • Automatic', plate: 'DEMO-01' },
-    pickup: { date: new Date().toISOString().split('T')[0], time: '10:00', fee: 0 },
-    dropoff: { date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0], time: '10:00', fee: 0 },
-    pricing: { total: 4500, currency: 'THB', deposit: 5000, daysRegular: 3, priceRegular: 4500, daysSeason: 0, priceSeason: 0 },
-    renter: { surname: 'John Doe', contact: '+123456789', passport: 'AB123456' },
-    owner: { surname: 'Ownima Rentals', contact: 'rentals@ownima.com', address: '123 Beach Rd, Phuket' },
-    extraOptions: [{ name: 'Baby Seat', price: 300 }]
-});
-
-const getMockHistory = (): HistoryEvent[] => [
-    {
-        confirmation_date: new Date(Date.now() - 172800000).toISOString(),
-        status: 'status_pending',
-        confirmation_note: 'Reservation created via Web'
-    },
-    {
-        confirmation_date: new Date(Date.now() - 86400000).toISOString(),
-        status: 'status_confirmation_owner',
-        confirmation_note: 'Pending Owner Confirmation'
-    }
-];
-
-const getMockMessages = (topicId: string) => [
-    {
-        id: 'mock-1',
-        time: Math.floor(Date.now() / 1000) - 86400,
-        event: 'message',
-        topic: topicId,
-        message: 'Hello! Is this vehicle available for my dates?',
-        title: 'Renter',
-        tags: []
-    },
-    {
-        id: 'mock-2',
-        time: Math.floor(Date.now() / 1000) - 82000,
-        event: 'message',
-        topic: topicId,
-        message: 'Yes, it is ready. Please proceed with the deposit.',
-        title: 'Me',
-        tags: []
-    }
-];
-
 export const fetchReservation = async (id: string, signal?: AbortSignal): Promise<Partial<LeaseData> | null> => {
     try {
         const response = await fetch(`${BASE_RESERVATION_URL}/${id}`, {
@@ -291,6 +240,8 @@ export const fetchReservation = async (id: string, signal?: AbortSignal): Promis
         }
 
         if (!response.ok) {
+            // Check for 404 specifically
+            if (response.status === 404) return null;
             throw new Error(`API Error: ${response.status}`);
         }
 
@@ -312,10 +263,8 @@ export const fetchReservation = async (id: string, signal?: AbortSignal): Promis
 
     } catch (error: any) {
         if (error.name === 'AbortError') throw error;
-
-        // Fallback for network errors (Failed to fetch) allows the app to work offline/demo
-        console.warn(`Fetch Reservation failed (${error.message}). Using mock data.`);
-        return getMockLease(id);
+        // Propagate error to let the UI handle "Offline" vs "Not Found" logic
+        throw error;
     }
 };
 
@@ -328,7 +277,6 @@ export const loadLeaseData = async (id: string, signal?: AbortSignal): Promise<L
     const apiData = await fetchReservation(id, signal);
     
     if (!apiData) {
-        // If fetchReservation returned null (rare with mock fallback, but possible if explicitly null)
         throw new Error("Reservation not found");
     }
 
@@ -442,8 +390,7 @@ export const fetchReservationHistory = async (id: string, signal?: AbortSignal):
         return [];
     } catch (e: any) {
         if (e.name === 'AbortError') throw e;
-        console.warn("History fetch failed, returning mock data.");
-        return getMockHistory();
+        return [];
     }
 };
 
@@ -462,9 +409,8 @@ export const fetchNtfyMessages = async (topicId: string, signal?: AbortSignal) =
             .filter((msg: any) => msg && msg.event === 'message'); // Filter for chat messages only
     } catch (e: any) {
         if (e.name === 'AbortError') throw e;
-        console.warn("Chat fetch failed, returning mock data.");
-        // Return a friendly mock message so chat isn't dead
-        return getMockMessages(topicId);
+        // Return empty array instead of fake data on error
+        return [];
     }
 };
 
