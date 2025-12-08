@@ -3,15 +3,15 @@
 
 ## 🧐 Current Status Review
 **Phases 1-7 Complete. Phase 8 (Intelligence) In Progress.**
-The application is now a feature-complete **PWA Rental Workspace** with a Gantt-chart schedule view, full internationalization, and dark mode.
+The application is a feature-complete **PWA Rental Workspace** with a robust "Freeze Pane" Gantt-chart schedule, full internationalization, and dark mode.
 
 **Core Strengths:**
 *   **Dual Engine:** Seamlessly handles structured Invoices and complex Lease Agreements.
 *   **Hybrid Rendering:** Client-Side PDF generation (`@react-pdf`) + Server-Side HTML previews.
 *   **Secure:** Integrated Token-based Authentication & Iframe Handshake.
 *   **Offline-Ready:** Service Worker caching, IndexedDB persistence, & Background Sync logic.
-*   **Collaborative:** Real-time Chat with media, system events, and lease lifecycle actions.
-*   **Visual Schedule:** Tetris-packed Gantt chart for vehicle availability (`SchedulePage`).
+*   **Collaborative:** Real-time Chat with media, system events, and full lease lifecycle (Confirm -> Collect -> Complete).
+*   **Visual Schedule:** High-performance "Spreadsheet-style" Gantt chart with synchronized 2D scrolling.
 
 ---
 
@@ -41,8 +41,8 @@ We are now enhancing the "Smart" aspects using Google Gemini.
 ### ✅ Phase 7: Chat, PWA & Scheduler
 *   **PWA:** `manifest.json` and `sw.js` for "Add to Home Screen".
 *   **Chat:** Real-time SSE, Ntfy integration, Media sharing, Read receipts.
-*   **Lifecycle:** Confirm/Reject/Collect/Complete actions within chat bubbles.
-*   **Schedule:** Virtualized Gantt chart view for fleet management.
+*   **Lifecycle:** Full workflow support: `Confirm` -> `Collect` (Handover) -> `Complete` (Return).
+*   **Schedule:** "Freeze Pane" timeline view with sticky headers and vehicle columns.
 *   **Polish:** Dark Mode (`useTheme`), i18n (`useLanguage` with EN/RU/TH/VI/ID).
 
 ---

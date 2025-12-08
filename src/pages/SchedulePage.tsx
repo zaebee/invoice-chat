@@ -190,22 +190,22 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white text-slate-900">
+        <div className="flex flex-col h-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-200">
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white z-30 shadow-sm relative shrink-0">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-30 shadow-sm relative shrink-0">
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-slate-800">
-                        <CalendarDays className="text-blue-600" />
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-white">
+                        <CalendarDays className="text-blue-600 dark:text-blue-400" />
                         <h2 className="text-xl font-bold">{t('sched_title', lang)}</h2>
                     </div>
-                    <div className="flex bg-slate-100 rounded-lg p-1">
-                        <button onClick={handlePrev} className="p-1.5 hover:bg-white rounded-md shadow-sm text-slate-600 transition-all"><ChevronLeft size={16} /></button>
-                        <button onClick={handleToday} className="px-3 text-xs font-bold hover:bg-white rounded-md shadow-sm text-slate-700 transition-all">{t('sched_today', lang)}</button>
-                        <button onClick={handleNext} className="p-1.5 hover:bg-white rounded-md shadow-sm text-slate-600 transition-all"><ChevronRight size={16} /></button>
+                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                        <button onClick={handlePrev} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-600 dark:text-slate-400 transition-all"><ChevronLeft size={16} /></button>
+                        <button onClick={handleToday} className="px-3 text-xs font-bold hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-700 dark:text-slate-300 transition-all">{t('sched_today', lang)}</button>
+                        <button onClick={handleNext} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-600 dark:text-slate-400 transition-all"><ChevronRight size={16} /></button>
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-4 text-xs font-medium text-slate-500 hidden sm:flex">
+                <div className="flex items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:flex">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-indigo-500"></div> Confirmed
                     </div>
@@ -218,18 +218,18 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                 </div>
             </div>
 
-            {/* Timeline Container - Unified Scroll View */}
-            <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/50 relative">
+            {/* Timeline Container - Unified Scroll View (Freeze Panes) */}
+            <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 relative overscroll-contain">
                 
                 {/* Scroll Content Wrapper - Ensures sticky header expands to full width */}
                 <div className="min-w-max">
                     {/* Header Row (Dates) - Sticky Top */}
-                    <div className="flex border-b border-slate-200 bg-white sticky top-0 z-40 shadow-sm">
+                    <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 shadow-sm">
                         
-                        {/* Vehicle Column Header - Sticky Left (The Corner) */}
-                        <div className="w-56 md:w-64 shrink-0 p-3 border-r border-slate-200 bg-slate-50 z-50 font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                        {/* Vehicle Column Header - Sticky Left (The Corner) - z-50 to stay above everything */}
+                        <div className="w-56 md:w-64 shrink-0 p-3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-50 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
                             <span>{t('grp_vehicle', lang)}</span>
-                            <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600">{vehicleGroups.length}</span>
+                            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{vehicleGroups.length}</span>
                         </div>
                         
                         {/* Date Columns */}
@@ -237,13 +237,13 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                             {days.map((d, i) => (
                                 <div 
                                     key={i} 
-                                    className={`shrink-0 border-r border-slate-100 p-2 text-center flex flex-col items-center justify-center transition-colors ${isToday(d) ? 'bg-blue-50/60' : 'bg-white'}`}
+                                    className={`shrink-0 border-r border-slate-100 dark:border-slate-800 p-2 text-center flex flex-col items-center justify-center transition-colors ${isToday(d) ? 'bg-blue-50/60 dark:bg-blue-900/20' : 'bg-white dark:bg-slate-900'}`}
                                     style={{ width: DAY_WIDTH }}
                                 >
-                                    <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>
                                         {d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
                                     </span>
-                                    <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday(d) ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'text-slate-700'}`}>
+                                    <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday(d) ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {d.getDate()}
                                     </div>
                                 </div>
@@ -256,21 +256,21 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                         {vehicleGroups.map((group) => (
                             <div 
                                 key={group.id} 
-                                className="flex border-b border-slate-200/60 hover:bg-slate-50 transition-colors group relative bg-white"
+                                className="flex border-b border-slate-200/60 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group relative bg-white dark:bg-slate-900"
                                 style={{ height: group.rowHeight }}
                             >
                                 {/* Sticky Vehicle Name - Sticky Left */}
-                                <div className="w-56 md:w-64 shrink-0 p-4 border-r border-slate-200 bg-white group-hover:bg-slate-50 sticky left-0 z-30 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                <div className="w-56 md:w-64 shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-30 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 border border-slate-200/50 shadow-sm">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm">
                                             <Car size={20} />
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <div className="font-bold text-sm text-slate-800 truncate leading-tight mb-1" title={group.name}>{group.name}</div>
+                                            <div className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate leading-tight mb-1" title={group.name}>{group.name}</div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">{group.plate}</span>
+                                                <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">{group.plate}</span>
                                                 {group.laneCount > 1 && (
-                                                    <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 px-1.5 py-0.5 rounded font-medium border border-orange-100">
+                                                    <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded font-medium border border-orange-100 dark:border-orange-900/30">
                                                         <AlertTriangle size={10} /> {group.laneCount} overlaps
                                                     </span>
                                                 )}
@@ -285,7 +285,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                     {days.map((d, i) => (
                                         <div 
                                             key={i} 
-                                            className={`shrink-0 border-r border-slate-100/80 h-full ${isToday(d) ? 'bg-blue-50/20' : ''}`}
+                                            className={`shrink-0 border-r border-slate-100/80 dark:border-slate-800/50 h-full ${isToday(d) ? 'bg-blue-50/20 dark:bg-blue-900/10' : ''}`}
                                             style={{ width: DAY_WIDTH }}
                                         />
                                     ))}
@@ -330,8 +330,8 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                         ))}
 
                         {vehicleGroups.length === 0 && (
-                            <div className="p-20 text-center flex flex-col items-center justify-center gap-4 text-slate-400">
-                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                            <div className="p-20 text-center flex flex-col items-center justify-center gap-4 text-slate-400 dark:text-slate-500">
+                                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
                                     <Car size={32} className="opacity-50" />
                                 </div>
                                 <p className="font-medium">{t('sched_no_vehicles', lang)}</p>

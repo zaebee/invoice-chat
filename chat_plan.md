@@ -32,6 +32,7 @@
 
 ### 📅 Visual Schedule
 *   **Gantt View:** `SchedulePage` visualizes chat sessions as bookings on a timeline.
+*   **Freeze Pane:** Synchronized scrolling with sticky Date Headers (top) and Vehicle Columns (left).
 *   **Logic:** "Tetris" packing algorithm for vehicle lanes.
 
 ### 💾 Persistence & Offline
