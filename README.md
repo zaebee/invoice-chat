@@ -1,6 +1,6 @@
 # Ownima Pro 📄
 
-**Ownima Pro** is a professional rental management workspace built with React and TypeScript. It seamlessly integrates Lease Agreement generation, Invoice creation, and real-time Chat for Owners and Renters.
+**Ownima Pro** is a professional rental management workspace built with React and TypeScript. It seamlessly integrates Lease Agreement generation, Invoice creation, real-time Chat, and a visual **Schedule Timeline** for Owners and Renters.
 
 Built for **Ownima**, it provides a unified platform to manage vehicle reservations, sign contracts digitally, and communicate via a unified timeline.
 
@@ -10,14 +10,22 @@ Built for **Ownima**, it provides a unified platform to manage vehicle reservati
     *   **Lease Agreements**: Dynamic vehicle rental contracts with automatic "Early/Late" pickup highlighting and fee calculation.
     *   **Russian Invoices**: Standardized A4 layout with automatic VAT calculation and bank details formatting.
     *   **Digital Signatures**: Sign directly on the device using the integrated signature pad.
+*   **Visual Scheduler (Gantt)**:
+    *   **Timeline View**: A "Freeze Pane" style Gantt chart visualizing bookings by vehicle.
+    *   **Tetris Packing**: Smart layout algorithm automatically stacks overlapping bookings into lanes to prevent visual collisions.
 *   **Real-time Collaboration**:
-    *   **Chat System**: Integrated messaging with Owners/Renters.
+    *   **Chat System**: Integrated messaging with Owners/Renters via Ntfy/SSE.
     *   **System Events**: Automatic updates for reservation status changes (Confirmed, Collected, Overdue).
+*   **AI Intelligence (Phase 8)**:
+    *   **Smart Import**: Paste unstructured text (emails, messages) and let **Google Gemini 2.5** parse it into structured forms.
+    *   **Intent Analysis**: The AI analyzes chat context to suggest the next workflow action (e.g., "Renter says they arrived" -> Suggest "Collect").
 *   **Offline-Ready (PWA)**:
     *   **Service Worker**: Caches app shell for instant loading and offline access.
     *   **IndexedDB**: Persists chat history and session data locally.
-*   **AI Smart Import**: Paste unstructured text (emails, messages) and let **Google Gemini 2.5** parse it into structured forms.
-*   **Mobile-First Wizard**: Complex forms transform into a step-by-step wizard on mobile devices.
+
+## 📚 Architecture
+
+For a deep dive into the system design, data flow, and the "Trinity of Data" pattern, please read [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## 🛠️ Tech Stack
 
@@ -82,7 +90,7 @@ npm run build
 *   `src/components/ui`: Reusable UI atoms (Wizard, InputGroup, SignaturePad).
 *   `src/stores`: Global state (chatStore).
 *   `src/services`: API clients (`ownimaApi`, `geminiService`, `dbService`).
-*   `src/hooks`: React hooks (`useInvoice`, `useLease`).
+*   `src/hooks`: React hooks (`useInvoice`, `useLease`, `useVirtualList`).
 *   `src/types.ts`: Centralized TypeScript interfaces.
 
 ## 🔒 Authentication

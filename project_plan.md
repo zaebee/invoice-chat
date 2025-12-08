@@ -2,7 +2,7 @@
 # 🚀 Ownima Pro: Architecture & Roadmap
 
 ## 🧐 Current Status Review
-**Phases 1-7 Complete. Phase 8 (Intelligence) In Progress.**
+**Phases 1-7 Complete. Phase 8 (Intelligence) Active.**
 The application is a feature-complete **PWA Rental Workspace** with a robust "Freeze Pane" Gantt-chart schedule, full internationalization, and dark mode.
 
 **Core Strengths:**
@@ -11,21 +11,22 @@ The application is a feature-complete **PWA Rental Workspace** with a robust "Fr
 *   **Secure:** Integrated Token-based Authentication & Iframe Handshake.
 *   **Offline-Ready:** Service Worker caching, IndexedDB persistence, & Background Sync logic.
 *   **Collaborative:** Real-time Chat with media, system events, and full lease lifecycle (Confirm -> Collect -> Complete).
-*   **Visual Schedule:** High-performance "Spreadsheet-style" Gantt chart with synchronized 2D scrolling.
+*   **Visual Schedule:** High-performance "Spreadsheet-style" Gantt chart with "Tetris" packing algorithm.
 
 ---
 
 ## 🚧 Current Focus: Phase 8 - AI Intelligence
 
-We are now enhancing the "Smart" aspects using Google Gemini.
+We are actively enhancing the "Smart" aspects using Google Gemini.
 
-### 1. 🤖 AI Chat Copilot
-*   **Goal:** Allow users to invoke AI within the chat stream.
-*   **Interaction:** User types `@AI` -> System generates context-aware replies.
-*   **Context:** AI has access to `LeaseData` (Price, Dates, Vehicle) to answer questions like "Is the deposit paid?".
+### 1. 🤖 AI Chat Copilot (Implemented)
+*   **Intent Detection:** System analyzes the last 10 messages + current Lease Status to suggest workflow actions.
+    *   *Example:* Status is `confirmed`, Renter says "I'm outside". AI suggests **Collect Vehicle** action.
+*   **Smart Import:** `AiModal` allows pasting unstructured text to auto-fill Invoice or Lease forms.
 
-### 2. 🧠 Smart Actions
-*   **Intent Detection:** AI analyzes chat messages to suggest status changes (e.g., "Customer said they are here" -> Suggest "Collect Vehicle").
+### 2. 🧠 Next Steps
+*   **Smart Replies:** Generate draft text responses for the Owner based on context (e.g., "Yes, the deposit is 5000 THB").
+*   **Voice Mode:** Integrate Gemini Live API for voice-based rental management.
 
 ---
 
