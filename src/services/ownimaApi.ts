@@ -69,6 +69,26 @@ const mapApiStatus = (rawStatus: string | undefined): LeaseStatus => {
     return 'pending';
 };
 
+// Helper to safely combine date and time into a valid ISO string
+const combineDateTime = (dateIso: string | undefined, timeStr: string | undefined): string | undefined => {
+    if (!dateIso) return undefined;
+    if (!timeStr) return dateIso;
+    
+    // If timeStr is already full ISO (contains T), prefer it
+    if (timeStr.includes('T')) return timeStr;
+
+    // Extract YYYY-MM-DD from the dateIso
+    const datePart = dateIso.split('T')[0];
+    
+    // Check if timeStr is a valid time format (HH:MM or HH:MM:SS)
+    // Simple validation: contains colon
+    if (timeStr.includes(':')) {
+        return `${datePart}T${timeStr}`;
+    }
+
+    return dateIso;
+};
+
 const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): Partial<LeaseData> => {
     try {
         const r = json.reservation;
@@ -145,10 +165,9 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         const avatarPath = rider.avatar;
         const avatarUrl = avatarPath ? `${AVATAR_BASE_URL}${avatarPath}` : undefined;
 
-        // Exact Times for Scheduler (Prefer TimeRange start/end, fallback to reservation date_from/to)
-        // Ensure they are full ISO strings
-        const exactPickupDate = p.collect_time?.start || r.date_from;
-        const exactDropoffDate = d.return_time?.end || r.date_to;
+        // Exact Times for Scheduler (Prefer TimeRange start/end combined with date, fallback to reservation date_from/to)
+        const exactPickupDate = combineDateTime(r.date_from, p.collect_time?.start);
+        const exactDropoffDate = combineDateTime(r.date_to, d.return_time?.end);
 
         return {
             id: r.id, // Store real UUID for API calls
