@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ChatSession, ChatMessage, LeaseData, LeaseStatus } from '../types';
+import { ChatSession, ChatMessage, LeaseData } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
 import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
