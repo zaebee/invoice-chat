@@ -11,23 +11,24 @@ interface SchedulePageProps {
     lang: Language;
 }
 
-// Layout Constants
-const DAY_WIDTH = 60; // Pixels per day
-const BAR_HEIGHT = 42; // Height of the booking bar
-const BAR_GAP = 6; // Vertical gap between stacked bars
-const ROW_PADDING = 10; // Top/Bottom padding for the row
-const MIN_ROW_HEIGHT = 70; // Minimum height for a vehicle row
+// --- CONSTANTS ---
+const DAY_WIDTH = 60;
+const BAR_HEIGHT = 42;
+const BAR_GAP = 6;
+const ROW_PADDING = 10;
+const MIN_ROW_HEIGHT = 70;
+const DAYS_TO_SHOW = 21;
+const START_OFFSET = 2; // Days before today
+
+// --- TYPES ---
+interface LayoutMetrics {
+    lane: number;
+    left: number;
+    width: number;
+}
 
 interface ProcessedSession extends ChatSession {
-    tempStart: number;
-    tempEnd: number;
-    layout: {
-        lane: number;
-        startDayOffset: number;
-        durationDays: number;
-        left: number;
-        width: number;
-    };
+    layout: LayoutMetrics;
 }
 
 interface VehicleGroup {
@@ -39,20 +40,123 @@ interface VehicleGroup {
     rowHeight: number;
 }
 
+// --- HELPER HOOK (HIVE Pattern) ---
+// Extracts complex layout logic ("Tetris Packing") from the UI component
+const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
+    return useMemo(() => {
+        // 1. Determine Timeline Start (Midnight)
+        const timelineStart = new Date(startDate);
+        timelineStart.setDate(timelineStart.getDate() - START_OFFSET);
+        timelineStart.setHours(0, 0, 0, 0);
+
+        // 2. Group by Vehicle (Name + Plate)
+        const rawGroups: Record<string, ChatSession[]> = {};
+        
+        sessions.forEach(s => {
+            if (s.isArchived) return;
+            
+            const summary = s.reservationSummary;
+            const plate = summary?.plateNumber || 'Unknown';
+            const vehicleName = summary?.vehicleName || 'Unknown Vehicle';
+            const key = `${vehicleName}::${plate}`;
+            
+            if (!rawGroups[key]) rawGroups[key] = [];
+            rawGroups[key].push(s);
+        });
+
+        // 3. Process Each Group
+        const groups: VehicleGroup[] = Object.entries(rawGroups).map(([key, groupSessions]) => {
+            const [name, plate] = key.split('::');
+
+            // A. Calculate Raw Positions (Time -> Pixels)
+            const items = groupSessions.map(session => {
+                const summary = session.reservationSummary;
+                
+                // Determine Start/End dates with fallbacks
+                let start = summary?.pickupDate ? new Date(summary.pickupDate) : new Date(session.lastMessageTime);
+                let end = summary?.dropoffDate ? new Date(summary.dropoffDate) : new Date(start.getTime() + (3 * 24 * 60 * 60 * 1000)); // Default 3 days
+
+                // Normalize to start of day for grid alignment
+                const sTime = new Date(start); sTime.setHours(0,0,0,0);
+                const eTime = new Date(end); eTime.setHours(0,0,0,0);
+
+                // Calculate duration and offset
+                const startDiffDays = (sTime.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
+                let durationDays = Math.ceil((eTime.getTime() - sTime.getTime()) / (1000 * 60 * 60 * 24));
+                if (durationDays < 1) durationDays = 1;
+
+                return {
+                    session,
+                    startMs: sTime.getTime(),
+                    endMs: eTime.getTime(),
+                    left: startDiffDays * DAY_WIDTH,
+                    width: durationDays * DAY_WIDTH
+                };
+            });
+
+            // B. Sort for Packing (Earliest start, then longest duration)
+            items.sort((a, b) => a.startMs - b.startMs || (b.width - a.width));
+
+            // C. "Tetris" Packing Algorithm (Lane Assignment)
+            const lanes: number[] = []; // Stores the end time (ms) of the last block in each lane
+            
+            const bookings: ProcessedSession[] = items.map(item => {
+                let assignedLane = -1;
+
+                // Find the first lane where this item fits
+                for (let i = 0; i < lanes.length; i++) {
+                    if (lanes[i] <= item.startMs) {
+                        assignedLane = i;
+                        lanes[i] = item.endMs;
+                        break;
+                    }
+                }
+
+                // If no fit, create a new lane
+                if (assignedLane === -1) {
+                    assignedLane = lanes.length;
+                    lanes.push(item.endMs);
+                }
+
+                return {
+                    ...item.session,
+                    layout: {
+                        lane: assignedLane,
+                        left: item.left,
+                        width: item.width
+                    }
+                };
+            });
+
+            // D. Calculate Row Metrics
+            const laneCount = Math.max(1, lanes.length);
+            const contentHeight = (laneCount * (BAR_HEIGHT + BAR_GAP)) - BAR_GAP;
+            const rowHeight = Math.max(MIN_ROW_HEIGHT, contentHeight + (ROW_PADDING * 2));
+
+            return { id: key, name, plate, bookings, laneCount, rowHeight };
+        });
+
+        // 4. Sort Groups Alphabetically
+        groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        return { groups, timelineStart };
+    }, [sessions, startDate]);
+};
+
+// --- SUB-COMPONENTS ---
+
 const CurrentTimeIndicator = ({ startOffset, dayWidth }: { startOffset: number; dayWidth: number }) => {
-    const [nowOffset, setNowOffset] = useState(0);
+    const [nowOffset, setNowOffset] = useState(-1);
 
     useEffect(() => {
-        const calculatePos = () => {
-            const now = new Date();
-            const diff = now.getTime() - startOffset;
-            const daysPassed = diff / (1000 * 60 * 60 * 24);
-            setNowOffset(daysPassed * dayWidth);
+        const update = () => {
+            const now = Date.now();
+            const diffDays = (now - startOffset) / (1000 * 60 * 60 * 24);
+            setNowOffset(diffDays * dayWidth);
         };
-
-        calculatePos();
-        const timer = setInterval(calculatePos, 60000); // Update every minute
-        return () => clearInterval(timer);
+        update();
+        const interval = setInterval(update, 60000); // Update every minute
+        return () => clearInterval(interval);
     }, [startOffset, dayWidth]);
 
     if (nowOffset < 0) return null;
@@ -67,166 +171,39 @@ const CurrentTimeIndicator = ({ startOffset, dayWidth }: { startOffset: number; 
     );
 };
 
+// --- MAIN COMPONENT ---
+
 const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
-    const { sessions, isHydrated, hydrate } = useChatStore();
     const navigate = useNavigate();
+    const { sessions, isHydrated, hydrate } = useChatStore();
+    const [startDate, setStartDate] = useState(new Date());
     const [hoveredSession, setHoveredSession] = useState<string | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-    
-    // Timeline Settings
-    const DAYS_TO_SHOW = 21; // Total days visible
-    const START_OFFSET = 2; // Days before today
-    const [startDate, setStartDate] = useState(new Date());
 
     useEffect(() => {
         if (!isHydrated) hydrate();
     }, [isHydrated, hydrate]);
 
-    // 1. Calculate Timeline Range
-    const timelineStart = useMemo(() => {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() - START_OFFSET);
-        d.setHours(0, 0, 0, 0);
+    // Use Custom Hook for Logic
+    const { groups: vehicleGroups, timelineStart } = useTimelineLayout(sessions, startDate);
+
+    // Generate Header Days
+    const days = useMemo(() => Array.from({ length: DAYS_TO_SHOW }, (_, i) => {
+        const d = new Date(timelineStart);
+        d.setDate(d.getDate() + i);
         return d;
-    }, [startDate]);
+    }), [timelineStart]);
 
-    // 2. Process Data: Group -> Sort -> Pack (Assign Lanes)
-    const vehicleGroups = useMemo<VehicleGroup[]>(() => {
-        const rawGroups: Record<string, ChatSession[]> = {};
-        
-        // Group by Vehicle
-        sessions.forEach(s => {
-            if (s.isArchived) return;
-            
-            const summary = s.reservationSummary;
-            const plate = summary?.plateNumber || 'Unknown';
-            const vehicleName = summary?.vehicleName || 'Unknown Vehicle';
-            const key = `${vehicleName}::${plate}`;
-            
-            if (!rawGroups[key]) rawGroups[key] = [];
-            rawGroups[key].push(s);
-        });
-
-        // Process each group
-        return Object.entries(rawGroups).map(([key, groupSessions]) => {
-            const [name, plate] = key.split('::');
-
-            // A. Calculate basic positions
-            const positionedSessions = groupSessions.map(session => {
-                const summary = session.reservationSummary;
-                let start: Date, end: Date;
-
-                if (summary && summary.pickupDate && summary.dropoffDate) {
-                    start = new Date(summary.pickupDate);
-                    end = new Date(summary.dropoffDate);
-                } else {
-                    // Fallback
-                    start = new Date(session.lastMessageTime);
-                    end = new Date(start);
-                    end.setDate(end.getDate() + 3);
-                }
-                
-                // Normalize to midnight
-                const sTime = new Date(start); sTime.setHours(0,0,0,0);
-                const eTime = new Date(end); eTime.setHours(0,0,0,0);
-
-                const startDiff = (sTime.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24);
-                const duration = Math.ceil((eTime.getTime() - sTime.getTime()) / (1000 * 60 * 60 * 24)) || 1;
-
-                return {
-                    ...session,
-                    tempStart: sTime.getTime(),
-                    tempEnd: eTime.getTime(),
-                    layout: {
-                        startDayOffset: startDiff,
-                        durationDays: duration,
-                        left: startDiff * DAY_WIDTH,
-                        width: duration * DAY_WIDTH,
-                        lane: 0 // Will be assigned next
-                    }
-                };
-            });
-
-            // B. Pack (Assign Lanes) - "Tetris Algorithm"
-            // Sort by start time first, then by duration (longer first usually packs better)
-            positionedSessions.sort((a, b) => a.tempStart - b.tempStart || b.layout.durationDays - a.layout.durationDays);
-
-            const lanes: number[] = []; // Stores the end time of the last block in each lane
-
-            positionedSessions.forEach(session => {
-                let placed = false;
-                // Try to fit in existing lanes
-                for (let i = 0; i < lanes.length; i++) {
-                    if (lanes[i] <= session.tempStart) {
-                        session.layout.lane = i;
-                        lanes[i] = session.tempEnd;
-                        placed = true;
-                        break;
-                    }
-                }
-                // Create new lane if needed
-                if (!placed) {
-                    session.layout.lane = lanes.length;
-                    lanes.push(session.tempEnd);
-                }
-            });
-
-            const laneCount = Math.max(1, lanes.length);
-            // Calculate dynamic height: Padding Top + (Lanes * (Bar + Gap)) + Padding Bottom - Last Gap
-            const contentHeight = (laneCount * (BAR_HEIGHT + BAR_GAP)) - BAR_GAP;
-            const rowHeight = Math.max(MIN_ROW_HEIGHT, contentHeight + (ROW_PADDING * 2));
-
-            return {
-                id: key,
-                name,
-                plate,
-                bookings: positionedSessions,
-                laneCount,
-                rowHeight
-            };
-        }).sort((a, b) => a.name.localeCompare(b.name));
-
-    }, [sessions, timelineStart]);
-
-    // Timeline Grid Generation
-    const days = useMemo(() => {
-        const result = [];
-        for (let i = 0; i < DAYS_TO_SHOW; i++) {
-            const d = new Date(timelineStart);
-            d.setDate(d.getDate() + i);
-            result.push(d);
-        }
-        return result;
-    }, [timelineStart]);
-
-    const handlePrev = () => {
-        const newDate = new Date(startDate);
-        newDate.setDate(newDate.getDate() - 7);
-        setStartDate(newDate);
-    };
-
-    const handleNext = () => {
-        const newDate = new Date(startDate);
-        newDate.setDate(newDate.getDate() + 7);
-        setStartDate(newDate);
-    };
-
-    const handleToday = () => {
-        setStartDate(new Date());
-    };
-
-    const isToday = (d: Date) => {
-        return d.toDateString() === new Date().toDateString();
-    };
-
-    const isWeekend = (d: Date) => {
-        const day = d.getDay();
-        return day === 0 || day === 6; // Sun or Sat
+    // Navigation Handlers
+    const shiftDate = (days: number) => {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + days);
+        setStartDate(d);
     };
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-200">
-            {/* Toolbar */}
+            {/* 1. Toolbar */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-30 shadow-sm relative shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-slate-800 dark:text-white">
@@ -234,34 +211,27 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                         <h2 className="text-xl font-bold">{t('sched_title', lang)}</h2>
                     </div>
                     <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
-                        <button onClick={handlePrev} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-600 dark:text-slate-400 transition-all"><ChevronLeft size={16} /></button>
-                        <button onClick={handleToday} className="px-3 text-xs font-bold hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-700 dark:text-slate-300 transition-all">{t('sched_today', lang)}</button>
-                        <button onClick={handleNext} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-600 dark:text-slate-400 transition-all"><ChevronRight size={16} /></button>
+                        <button onClick={() => shiftDate(-7)} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-600 dark:text-slate-400 transition-all"><ChevronLeft size={16} /></button>
+                        <button onClick={() => setStartDate(new Date())} className="px-3 text-xs font-bold hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-700 dark:text-slate-300 transition-all">{t('sched_today', lang)}</button>
+                        <button onClick={() => shiftDate(7)} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm text-slate-600 dark:text-slate-400 transition-all"><ChevronRight size={16} /></button>
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:flex">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm"></div> Confirmed
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></div> Collected
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></div> Pending
-                    </div>
+                {/* Legend (Hidden on Mobile) */}
+                <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm" /> Confirmed</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" /> Collected</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm" /> Pending</div>
                 </div>
             </div>
 
-            {/* Timeline Container - Unified Scroll View (Freeze Panes) */}
+            {/* 2. Timeline Grid (Scrollable Container) */}
             <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 relative overscroll-contain">
-                
-                {/* Scroll Content Wrapper */}
                 <div className="min-w-max">
-                    {/* Header Row (Dates) - Sticky Top */}
-                    <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 shadow-sm">
-                        
-                        {/* Vehicle Column Header - Sticky Left (The Corner) */}
+                    
+                    {/* A. Sticky Header Row */}
+                    <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 shadow-sm will-change-transform">
+                        {/* Top-Left Corner (Freeze Pane Intersection) */}
                         <div className="w-60 md:w-72 shrink-0 p-3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-50 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
                             <span>{t('grp_vehicle', lang)}</span>
                             <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{vehicleGroups.length}</span>
@@ -269,29 +239,31 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                         
                         {/* Date Columns */}
                         <div className="flex relative">
-                            {days.map((d, i) => (
-                                <div 
-                                    key={i} 
-                                    className={`shrink-0 border-r border-slate-100 dark:border-slate-800 p-2 text-center flex flex-col items-center justify-center transition-colors 
-                                        ${isToday(d) ? 'bg-blue-50/60 dark:bg-blue-900/20' : (isWeekend(d) ? 'bg-slate-50/50 dark:bg-slate-900/50' : 'bg-white dark:bg-slate-900')}
-                                    `}
-                                    style={{ width: DAY_WIDTH }}
-                                >
-                                    <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600 dark:text-blue-400' : (isWeekend(d) ? 'text-red-400 dark:text-red-400/70' : 'text-slate-400 dark:text-slate-500')}`}>
-                                        {d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
-                                    </span>
-                                    <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday(d) ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-slate-700 dark:text-slate-300'}`}>
-                                        {d.getDate()}
+                            {days.map((d, i) => {
+                                const isToday = d.toDateString() === new Date().toDateString();
+                                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                return (
+                                    <div 
+                                        key={i} 
+                                        className={`shrink-0 border-r border-slate-100 dark:border-slate-800 p-2 text-center flex flex-col items-center justify-center transition-colors 
+                                            ${isToday ? 'bg-blue-50/60 dark:bg-blue-900/20' : (isWeekend ? 'bg-slate-50/50 dark:bg-slate-900/50' : 'bg-white dark:bg-slate-900')}
+                                        `}
+                                        style={{ width: DAY_WIDTH }}
+                                    >
+                                        <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday ? 'text-blue-600 dark:text-blue-400' : (isWeekend ? 'text-red-400 dark:text-red-400/70' : 'text-slate-400 dark:text-slate-500')}`}>
+                                            {d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
+                                        </span>
+                                        <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-slate-700 dark:text-slate-300'}`}>
+                                            {d.getDate()}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                            
-                            {/* Today Line inside header */}
+                                );
+                            })}
                             <CurrentTimeIndicator startOffset={timelineStart.getTime()} dayWidth={DAY_WIDTH} />
                         </div>
                     </div>
 
-                    {/* Rows (Vehicles) */}
+                    {/* B. Data Rows */}
                     <div>
                         {vehicleGroups.map((group) => (
                             <div 
@@ -299,7 +271,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 className="flex border-b border-slate-200/60 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group relative bg-white dark:bg-slate-900"
                                 style={{ height: group.rowHeight }}
                             >
-                                {/* Sticky Vehicle Name - Sticky Left */}
+                                {/* Sticky Vehicle Name (Left Column) */}
                                 <div className="w-60 md:w-72 shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-30 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm">
@@ -321,34 +293,31 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
 
                                 {/* Timeline Track */}
                                 <div className="relative flex" style={{ width: days.length * DAY_WIDTH }}>
-                                    {/* Grid Lines (Background) */}
-                                    {days.map((d, i) => (
-                                        <div 
-                                            key={i} 
-                                            className={`shrink-0 border-r border-slate-100/80 dark:border-slate-800/50 h-full 
-                                                ${isToday(d) ? 'bg-blue-50/20 dark:bg-blue-900/10' : (isWeekend(d) ? 'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPgo8cmVjdCB3aWR0aD0nNCcgaGVpZ2h0PSc0JyBmaWxsPSIjZmZmIi8+CjxwYXRoIGQ9J00wIDBMNCA0Wk00IDBMMCA0Wicgc3Ryb2tlPSIjZjFmMZVmNSIgc3Ryb2tlLXdpZHRoPScxJy8+Cjwvc3ZnPg==")] dark:bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPgo8cmVjdCB3aWR0aD0nNCcgaGVpZ2h0PSc0JyBmaWxsPSIjMGUxNzJhIi8+CjxwYXRoIGQ9J00wIDBMNCA0Wk00IDBMMCA0Wicgc3Ryb2tlPSIjMWUyOTNiIiBzdHJva2Utd2lkdGg9JzEnLz4KPC9zdmc+")]' : '')}
-                                            `}
-                                            style={{ width: DAY_WIDTH }}
-                                        />
-                                    ))}
+                                    {/* Grid Background */}
+                                    {days.map((d, i) => {
+                                        const isToday = d.toDateString() === new Date().toDateString();
+                                        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                        return (
+                                            <div 
+                                                key={i} 
+                                                className={`shrink-0 border-r border-slate-100/80 dark:border-slate-800/50 h-full 
+                                                    ${isToday ? 'bg-blue-50/20 dark:bg-blue-900/10' : (isWeekend ? 'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPgo8cmVjdCB3aWR0aD0nNCcgaGVpZ2h0PSc0JyBmaWxsPSIjZmZmIi8+CjxwYXRoIGQ9J00wIDBMNCA0Wk00IDBMMCA0Wicgc3Ryb2tlPSIjZjFmMZVmNSIgc3Ryb2tlLXdpZHRoPScxJy8+Cjwvc3ZnPg==")] dark:bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPgo8cmVjdCB3aWR0aD0nNCcgaGVpZ2h0PSc0JyBmaWxsPSIjMGUxNzJhIi8+CjxwYXRoIGQ9J00wIDBMNCA0Wk00IDBMMCA0Wicgc3Ryb2tlPSIjMWUyOTNiIiBzdHJva2Utd2lkdGg9JzEnLz4KPC9zdmc+")]' : '')}
+                                                `}
+                                                style={{ width: DAY_WIDTH }}
+                                            />
+                                        );
+                                    })}
                                     
-                                    {/* Red Line extending through rows */}
                                     <CurrentTimeIndicator startOffset={timelineStart.getTime()} dayWidth={DAY_WIDTH} />
 
-                                    {/* Bookings Layer */}
+                                    {/* Bookings */}
                                     {group.bookings.map(session => {
                                         const { left, width, lane } = session.layout;
-                                        
-                                        // Visibility Optimization
-                                        if (left + width < 0) return null;
+                                        if (left + width < 0) return null; // Visibility check
 
                                         const status = session.reservationSummary?.status || 'pending';
                                         const config = STATUS_CONFIG[status] || STATUS_CONFIG['pending'];
-                                        
-                                        // Calculate Top Position based on Lane
                                         const top = ROW_PADDING + (lane * (BAR_HEIGHT + BAR_GAP));
-                                        
-                                        // Extract Price & Currency
                                         const price = session.reservationSummary?.price || 0;
                                         const currency = session.reservationSummary?.currency || 'THB';
 
@@ -361,20 +330,16 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                     setTooltipPos({ x: e.clientX, y: e.clientY });
                                                 }}
                                                 onMouseLeave={() => setHoveredSession(null)}
-                                                className={`absolute rounded-xl border shadow-sm cursor-pointer hover:scale-[1.01] hover:shadow-lg hover:z-20 transition-all flex items-center px-1 pr-2 gap-2 overflow-hidden whitespace-nowrap 
-                                                    ${config.bg} ${config.border} dark:brightness-110`}
+                                                className={`absolute rounded-xl border shadow-sm cursor-pointer hover:scale-[1.01] hover:shadow-lg hover:z-20 transition-all flex items-center px-1 pr-2 gap-2 overflow-hidden whitespace-nowrap ${config.bg} ${config.border} dark:brightness-110`}
                                                 style={{ 
                                                     left: Math.max(0, left), 
-                                                    width: Math.max(width - 4, 30), // Minimum visual width
+                                                    width: Math.max(width - 4, 30),
                                                     height: BAR_HEIGHT,
                                                     top,
                                                     zIndex: 10 + lane 
                                                 }}
                                             >
-                                                {/* Left Color Accent */}
                                                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${config.accent}`}></div>
-
-                                                {/* Avatar */}
                                                 <div className="w-8 h-8 rounded-full bg-white/80 border border-black/5 flex items-center justify-center overflow-hidden shrink-0 ml-1.5 shadow-sm">
                                                     {session.user.avatar ? (
                                                         <img src={session.user.avatar} className="w-full h-full object-cover" alt="" />
@@ -382,8 +347,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                         <span className={`text-[10px] font-bold ${config.text}`}>{session.user.name[0]}</span>
                                                     )}
                                                 </div>
-
-                                                {/* Text Content */}
                                                 <div className="flex flex-col justify-center min-w-0 flex-1 pl-1">
                                                     <div className="text-[10px] font-bold truncate leading-none mb-0.5 text-slate-800 dark:text-slate-100">{session.user.name}</div>
                                                     {price > 0 && (
@@ -411,7 +374,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                 </div>
             </div>
 
-            {/* Tooltip Portal */}
+            {/* 3. Tooltip Portal (Positioned absolutely) */}
             {hoveredSession && (
                 <div 
                     className="fixed z-[100] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 w-64 animate-in fade-in zoom-in-95 duration-150 pointer-events-none"
@@ -439,7 +402,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                         </div>
                                     </div>
                                 </div>
-                                
                                 <div className="space-y-2 text-xs">
                                     <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                                         <CalendarDays size={14} />
