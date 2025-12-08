@@ -1,5 +1,6 @@
 
 
+
 import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -144,6 +145,11 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         const avatarPath = rider.avatar;
         const avatarUrl = avatarPath ? `${AVATAR_BASE_URL}${avatarPath}` : undefined;
 
+        // Exact Times for Scheduler (Prefer TimeRange start/end, fallback to reservation date_from/to)
+        // Ensure they are full ISO strings
+        const exactPickupDate = p.collect_time?.start || r.date_from;
+        const exactDropoffDate = d.return_time?.end || r.date_to;
+
         return {
             id: r.id, // Store real UUID for API calls
             reservationId: reservationId, // Store humanized ID for Display
@@ -167,6 +173,9 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
                 time: dropoffTime,
                 fee: dropoffFee
             },
+            // Add exact times for scheduler
+            exactPickupDate,
+            exactDropoffDate,
             pricing: {
                 daysRegular: i.prices?.regular_price_days || 0,
                 priceRegular: i.prices?.regular_price_total || 0,

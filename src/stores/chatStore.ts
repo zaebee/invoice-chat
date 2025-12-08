@@ -1,5 +1,6 @@
 
 
+
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
@@ -282,7 +283,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     currency: leaseData.pricing.currency || 'THB', // PERSIST CURRENCY
                     deadline: leaseData.deadline, // CACHE DEADLINE
                     pickupDate: leaseData.pickup.date,
-                    dropoffDate: leaseData.dropoff.date
+                    dropoffDate: leaseData.dropoff.date,
+                    exactPickupDate: leaseData.exactPickupDate,
+                    exactDropoffDate: leaseData.exactDropoffDate
                 }
             };
 

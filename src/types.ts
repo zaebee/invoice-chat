@@ -75,6 +75,9 @@ export interface LeaseData {
     time: string;
     fee: number;
   };
+  // Exact ISO strings for precise scheduling (e.g. 2023-10-25T14:00:00Z)
+  exactPickupDate?: string;
+  exactDropoffDate?: string;
   pricing: {
     daysRegular: number;
     priceRegular: number;
@@ -167,6 +170,9 @@ export interface ChatSession {
     deadline?: number; // Cached deadline
     pickupDate?: string;
     dropoffDate?: string;
+    // Precise timestamps for scheduling
+    exactPickupDate?: string;
+    exactDropoffDate?: string;
   };
 }
 

@@ -1,4 +1,6 @@
 
+
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../stores/chatStore';
 import { Language, ChatSession } from '../types';
@@ -42,7 +44,7 @@ interface VehicleGroup {
 
 // --- HELPER HOOK (HIVE Pattern) ---
 // Extracts complex layout logic ("Tetris Packing") from the UI component
-const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
+const useTimelineLayout = (sessions: ChatSession[], startDate: Date, tick: number) => {
     return useMemo(() => {
         // 1. Determine Timeline Start (Midnight)
         const timelineStart = new Date(startDate);
@@ -74,12 +76,26 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
                 const status = summary?.status || 'pending';
                 
                 // Determine Start/End dates with fallbacks
-                let start = summary?.pickupDate ? new Date(summary.pickupDate) : new Date(session.lastMessageTime);
-                let end = summary?.dropoffDate ? new Date(summary.dropoffDate) : new Date(start.getTime() + (3 * 24 * 60 * 60 * 1000)); // Default 3 days
+                // Prioritize exact ISO timestamps if available for sub-day precision
+                let start: Date;
+                let end: Date;
+
+                if (summary?.exactPickupDate) {
+                    start = new Date(summary.exactPickupDate);
+                } else {
+                    start = summary?.pickupDate ? new Date(summary.pickupDate) : new Date(session.lastMessageTime);
+                }
+
+                if (summary?.exactDropoffDate) {
+                    end = new Date(summary.exactDropoffDate);
+                } else {
+                    end = summary?.dropoffDate ? new Date(summary.dropoffDate) : new Date(start.getTime() + (3 * 24 * 60 * 60 * 1000)); // Default 3 days
+                }
 
                 // Handle Overdue: Extend to NOW to show blockage
                 if (status === 'overdue') {
                     const now = new Date();
+                    // If current time is past the scheduled end, extend bar to now
                     if (now > end) end = now;
                 }
 
@@ -118,8 +134,7 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
             const bookings: ProcessedSession[] = items.map(item => {
                 let assignedLane = -1;
 
-                // Find the first lane where this item fits (with 30 min buffer for visual gap)
-                // Using 0 buffer allows touching events
+                // Find the first lane where this item fits (with 0 buffer for visual gap logic handled by width)
                 for (let i = 0; i < lanes.length; i++) {
                     if (lanes[i] <= item.startMs) {
                         assignedLane = i;
@@ -157,7 +172,7 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date) => {
         groups.sort((a, b) => a.name.localeCompare(b.name));
 
         return { groups, timelineStart };
-    }, [sessions, startDate]);
+    }, [sessions, startDate, tick]);
 };
 
 // --- SUB-COMPONENTS ---
@@ -196,13 +211,20 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     const [startDate, setStartDate] = useState(new Date());
     const [hoveredSession, setHoveredSession] = useState<string | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    
+    // Tick to force re-render for real-time "Overdue" expansion
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        const t = setInterval(() => setTick(n => n + 1), 60000); // Update every minute
+        return () => clearInterval(t);
+    }, []);
 
     useEffect(() => {
         if (!isHydrated) hydrate();
     }, [isHydrated, hydrate]);
 
     // Use Custom Hook for Logic
-    const { groups: vehicleGroups, timelineStart } = useTimelineLayout(sessions, startDate);
+    const { groups: vehicleGroups, timelineStart } = useTimelineLayout(sessions, startDate, tick);
 
     // Generate Header Days
     const days = useMemo(() => Array.from({ length: DAYS_TO_SHOW }, (_, i) => {
