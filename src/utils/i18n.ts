@@ -12,6 +12,7 @@ export type TranslationKey =
   | 'switch_invoice'
   | 'switch_lease'
   | 'switch_chat'
+  | 'switch_schedule'
   | 'doc_invoice'
   | 'doc_lease'
   | 'ai_modal_title'
@@ -207,7 +208,12 @@ export type TranslationKey =
   | 'time_overdue_by'
   | 'time_ending_now'
   | 'time_ends_in'
-  | 'time_days_left';
+  | 'time_days_left'
+  // Schedule
+  | 'sched_title'
+  | 'sched_today'
+  | 'sched_no_vehicles'
+  | 'sched_conflicts_detected';
 
 const dictionary: Record<Language, Record<TranslationKey, string>> = {
   ru: {
@@ -222,6 +228,7 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     switch_invoice: 'Счет (РФ)',
     switch_lease: 'Аренда',
     switch_chat: 'Чат',
+    switch_schedule: 'График',
     doc_invoice: 'A4 PDF • Стандарт РФ',
     doc_lease: 'A4 PDF • Договор аренды',
     ai_modal_title: 'Импорт данных через AI',
@@ -430,7 +437,13 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     time_overdue_by: 'Просрочка',
     time_ending_now: 'Завершается сейчас',
     time_ends_in: 'До конца',
-    time_days_left: 'дн. осталось'
+    time_days_left: 'дн. осталось',
+
+    // Schedule
+    sched_title: 'График бронирований',
+    sched_today: 'Сегодня',
+    sched_no_vehicles: 'Нет активных ТС',
+    sched_conflicts_detected: 'Обнаружен конфликт расписания!'
   },
   en: {
     invoice_editor: 'Invoice Editor',
@@ -444,6 +457,7 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     switch_invoice: 'Invoice (RU)',
     switch_lease: 'Lease',
     switch_chat: 'Chat',
+    switch_schedule: 'Schedule',
     doc_invoice: 'A4 PDF • Russian Standard',
     doc_lease: 'A4 PDF • Rental Agreement',
     ai_modal_title: 'AI Data Import',
@@ -652,7 +666,13 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     time_overdue_by: 'Overdue by',
     time_ending_now: 'Ending now',
     time_ends_in: 'Ends in',
-    time_days_left: 'days left'
+    time_days_left: 'days left',
+
+    // Schedule
+    sched_title: 'Booking Schedule',
+    sched_today: 'Today',
+    sched_no_vehicles: 'No active vehicles',
+    sched_conflicts_detected: 'Schedule conflict detected!'
   },
   // Add other languages (th, vi, id) if necessary, using 'en' as fallback for now
   th: {} as any,
