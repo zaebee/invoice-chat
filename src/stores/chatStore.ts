@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
@@ -211,7 +212,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     plateNumber: leaseData.vehicle.plate,
                     status: leaseData.status || 'pending',
                     price: leaseData.pricing.total,
-                    deadline: leaseData.deadline // CACHE DEADLINE
+                    deadline: leaseData.deadline, // CACHE DEADLINE
+                    pickupDate: leaseData.pickup.date,
+                    dropoffDate: leaseData.dropoff.date
                 }
             };
 

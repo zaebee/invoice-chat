@@ -30,7 +30,9 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
         const groups: Record<string, ChatSession[]> = {};
         
         sessions.forEach(s => {
+            if (s.isArchived) return; // Hide archived
             if (!s.reservationSummary) return;
+            
             const plate = s.reservationSummary.plateNumber || 'Unknown';
             const vehicleName = s.reservationSummary.vehicleName || 'Unknown Vehicle';
             const key = `${vehicleName}::${plate}`; // Unique key
@@ -55,7 +57,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     const conflicts = useMemo(() => {
         const conflictIds = new Set<string>();
         // Placeholder for future conflict detection logic
-        // Currently empty to avoid unused variable errors during build
         return conflictIds;
     }, []);
 
@@ -90,23 +91,33 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     };
 
     const getBarPosition = (session: ChatSession) => {
-        // NOTE: In a real production app, reservationSummary needs 'pickupDate' and 'dropoffDate'.
-        // Currently, we only have 'deadline' and derive status.
-        // We will MOCK dates based on session timestamps or assume a standard duration for demo.
-        // Ideally: Update types.ts to include pickupDate/dropoffDate in reservationSummary.
-        
-        // MOCK LOGIC for demo visualization
-        const mockStart = new Date(session.lastMessageTime); // Assume booked around last message
-        const durationDays = 3 + (session.user.name.length % 5); // Randomish duration 3-7 days
-        const mockEnd = new Date(mockStart);
-        mockEnd.setDate(mockEnd.getDate() + durationDays);
+        const summary = session.reservationSummary;
+        let start: Date, end: Date;
+
+        if (summary && summary.pickupDate && summary.dropoffDate) {
+            start = new Date(summary.pickupDate);
+            end = new Date(summary.dropoffDate);
+        } else {
+            // Fallback for sessions without detailed summary yet (use message time + mock duration)
+            start = new Date(session.lastMessageTime);
+            end = new Date(start);
+            end.setDate(end.getDate() + 3);
+        }
 
         const timelineStart = new Date(startDate);
         timelineStart.setDate(timelineStart.getDate() - START_OFFSET);
+        // Normalize timeline start to midnight
+        timelineStart.setHours(0,0,0,0);
+        // Normalize booking start to midnight for alignment
+        const bookingStart = new Date(start);
+        bookingStart.setHours(0,0,0,0);
 
-        const diffTime = mockStart.getTime() - timelineStart.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        const diffTime = bookingStart.getTime() - timelineStart.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
         
+        const durationTime = end.getTime() - start.getTime();
+        const durationDays = Math.ceil(durationTime / (1000 * 60 * 60 * 24)) || 1;
+
         return {
             left: diffDays * DAY_WIDTH,
             width: durationDays * DAY_WIDTH
@@ -195,8 +206,10 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 {/* Bookings */}
                                 {group.bookings.map(session => {
                                     const { left, width } = getBarPosition(session);
-                                    // Skip if out of view (simple check)
-                                    if (left + width < 0 || left > days.length * DAY_WIDTH) return null;
+                                    // Skip if totally out of view on the left
+                                    if (left + width < 0) return null;
+                                    // Skip if totally out of view on the right (optional optimization)
+                                    if (left > days.length * DAY_WIDTH) return null;
 
                                     const status = session.reservationSummary?.status || 'pending';
                                     const config = STATUS_CONFIG[status] || STATUS_CONFIG['pending'];
@@ -211,7 +224,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                         >
                                             <div className="shrink-0">{config.icon}</div>
                                             <span className="text-[10px] font-bold truncate">{session.user.name}</span>
-                                            {/* Action Icon overlay on hover could go here */}
                                         </div>
                                     );
                                 })}

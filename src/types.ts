@@ -164,6 +164,8 @@ export interface ChatSession {
     status: LeaseStatus;
     price: number;
     deadline?: number; // Cached deadline
+    pickupDate?: string;
+    dropoffDate?: string;
   };
 }
 
