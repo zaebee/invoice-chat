@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../stores/chatStore';
-import { Language, LeaseStatus, ChatSession } from '../types';
+import { Language, ChatSession } from '../types';
 import { t } from '../utils/i18n';
-import { Car, AlertTriangle, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
+import { Car, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { STATUS_CONFIG } from '../components/chat/ChatUtils';
 import { useNavigate } from 'react-router-dom';
 
@@ -54,22 +54,10 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     // Conflicts Detection
     const conflicts = useMemo(() => {
         const conflictIds = new Set<string>();
-        
-        vehicleGroups.forEach(group => {
-            // Simple overlap check
-            // Sort bookings by start date first
-            const sorted = [...group.bookings].sort((a, b) => {
-                // Since we don't have pickup date in summary, we rely on cached deadlines or approximate
-                // This is a limitation of the current summary structure. 
-                // For this feature to be robust, we need pickup/dropoff in reservationSummary.
-                // Assuming we update ChatSession type in the future.
-                // For now, we simulate using dummy data or fetch logic if needed.
-                return 0; 
-            });
-            // (Placeholder for real overlap logic once summary has dates)
-        });
+        // Placeholder for future conflict detection logic
+        // Currently empty to avoid unused variable errors during build
         return conflictIds;
-    }, [vehicleGroups]);
+    }, []);
 
     // Timeline Grid Generation
     const days = useMemo(() => {
