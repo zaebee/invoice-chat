@@ -105,7 +105,7 @@
     graph TD
         subgraph Frontend
             UI[React Components] --> CoreHooks[Core Hooks]
-            CoreHooks --> Stores[Zustand Stores (IBooking)]
+            CoreHooks --> Stores["Zustand Stores (IBooking)"]
             CoreHooks --> Adapter[Domain Adapter Layer]
         end
         subgraph Backend
