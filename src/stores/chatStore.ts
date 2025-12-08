@@ -1,9 +1,9 @@
-
 import { create } from 'zustand';
-import { ChatSession, ChatMessage, LeaseData } from '../types';
+import { ChatSession, ChatMessage, LeaseData, LeaseStatus } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
 import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
+import { analyzeChatIntent } from '../services/geminiService';
 
 // --- STORE DEFINITION ---
 
@@ -18,9 +18,13 @@ interface ChatState {
     currentLoadToken: number; // To prevent race conditions
     abortController: AbortController | null; // To cancel pending fetch requests
     
+    // AI Suggestions
+    aiSuggestion: { action: 'confirm' | 'reject' | 'collect' | 'complete'; reason: string } | null;
+    
     // Actions
     hydrate: () => Promise<void>;
     loadChatSession: (reservationId: string) => Promise<void>;
+    analyzeIntent: () => Promise<void>; // New AI Action
     setActiveSession: (id: string) => void;
     sendMessage: (text: string) => Promise<void>;
     sendImage: (file: File) => Promise<void>;
@@ -32,6 +36,7 @@ interface ChatState {
     markAsRead: (sessionId: string) => void;
     markAsUnread: (sessionId: string) => void;
     markMessageAsRead: (sessionId: string, messageId: string) => void;
+    clearAiSuggestion: () => void;
     setupBackgroundSync: () => void;
     archiveSession: (sessionId: string) => void;
     deleteSession: (sessionId: string) => Promise<void>;
@@ -48,6 +53,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     activeEventSource: null,
     currentLoadToken: 0,
     abortController: null,
+    aiSuggestion: null,
 
     hydrate: async () => {
         if (get().isHydrated) return;
@@ -97,7 +103,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (abortController) {
             abortController.abort();
         }
-        set({ activeEventSource: null, abortController: null });
+        set({ activeEventSource: null, abortController: null, aiSuggestion: null });
     },
 
     loadChatSession: async (reservationId: string) => {
@@ -128,7 +134,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             // Optimistic active set
             activeSessionId: reservationId, 
             isLoading: !sessions.find(s => s.id === reservationId), 
-            error: null 
+            error: null,
+            aiSuggestion: null // Reset suggestion on new chat load
         });
 
         try {
@@ -241,7 +248,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
             // Async Save to DB
             await dbService.saveSession(newSession);
 
-            // 7. Establish SSE Connection for Live Updates
+            // 7. Initial AI Check (Only if unread messages exist or if last message is from other)
+            if (newSession.messages.length > 0) {
+                const lastMsg = newSession.messages[newSession.messages.length - 1];
+                if (lastMsg.senderId !== 'me' && lastMsg.senderId !== 'system') {
+                    get().analyzeIntent();
+                }
+            }
+
+            // 8. Establish SSE Connection for Live Updates
             // Only connect if we have a valid topic and NOT in demo mode
             if (get().currentLoadToken === myToken && leaseData.source !== 'OFFLINE_DEMO') {
                 try {
@@ -293,6 +308,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
                                 
                                 return { sessions: newSessions };
                             });
+
+                            // Trigger AI Analysis on new incoming message from 'other'
+                            if (chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system') {
+                                get().analyzeIntent();
+                            }
+
                         } catch (e) {
                             console.error("SSE Parse Error", e);
                         }
@@ -328,8 +349,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
     },
 
+    analyzeIntent: async () => {
+        const { activeSessionId, sessions, leaseContext } = get();
+        if (!activeSessionId || !leaseContext) return;
+
+        const session = sessions.find(s => s.id === activeSessionId);
+        if (!session || session.messages.length === 0) return;
+
+        // Skip if last message is from me or system (don't analyze own messages)
+        const lastMsg = session.messages[session.messages.length - 1];
+        if (lastMsg.senderId === 'me' || lastMsg.senderId === 'system') {
+            set({ aiSuggestion: null });
+            return;
+        }
+
+        const suggestion = await analyzeChatIntent(session.messages, leaseContext.status || 'pending');
+        
+        if (suggestion) {
+            console.log("AI Suggestion:", suggestion);
+            set({ aiSuggestion: suggestion });
+        } else {
+            set({ aiSuggestion: null });
+        }
+    },
+
+    clearAiSuggestion: () => {
+        set({ aiSuggestion: null });
+    },
+
     setActiveSession: (id: string) => {
-        set({ activeSessionId: id });
+        set({ activeSessionId: id, aiSuggestion: null }); // Clear suggestion when switching
     },
 
     archiveSession: (sessionId: string) => {
@@ -452,7 +501,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return session;
         });
 
-        set({ sessions: updatedSessions });
+        set({ sessions: updatedSessions, aiSuggestion: null }); // Clear suggestion when user replies
         
         if (updatedSession) {
             await dbService.saveSession(updatedSession);
@@ -501,7 +550,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return session;
         });
 
-        set({ sessions: updatedSessions });
+        set({ sessions: updatedSessions, aiSuggestion: null });
         
         if (updatedSession) {
             await dbService.saveSession(updatedSession);
@@ -526,7 +575,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         
         // 1. Optimistically update Status in local store
         set(state => ({
-            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'confirmed' } : null
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'confirmed' } : null,
+            aiSuggestion: null
         }));
 
         // 2. Send System Message via Ntfy
@@ -539,7 +589,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         
         // 1. Optimistically update Status
         set(state => ({
-            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'rejected' } : null
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'rejected' } : null,
+            aiSuggestion: null
         }));
 
         // 2. Send System Message
@@ -552,7 +603,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         
         // 1. Optimistically update Status
         set(state => ({
-            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'collected' } : null
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'collected' } : null,
+            aiSuggestion: null
         }));
 
         // 2. Send System Message
@@ -565,7 +617,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         
         // 1. Optimistically update Status
         set(state => ({
-            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'completed' } : null
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'completed' } : null,
+            aiSuggestion: null
         }));
 
         // 2. Send System Message

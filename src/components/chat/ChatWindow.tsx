@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
-    MessageSquare, FileText, Download, Loader2, Eye, Car, Check
+    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE } from '../../types';
@@ -40,7 +40,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const menuRef = useRef<HTMLDivElement>(null);
     
     // Store Actions
-    const { sendMessage, sendImage, markMessageAsRead, confirmReservation, rejectReservation, collectReservation, completeReservation } = useChatStore();
+    const { 
+        sendMessage, 
+        sendImage, 
+        markMessageAsRead, 
+        confirmReservation, 
+        rejectReservation, 
+        collectReservation, 
+        completeReservation,
+        aiSuggestion,
+        clearAiSuggestion
+    } = useChatStore();
     
     // Deadline Hook
     const deadline = useDeadline(leaseData.deadline);
@@ -67,6 +77,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         const file = e.target.files?.[0];
         if (file) sendImage(file);
         if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // Handle suggested action click
+    const handleSuggestionClick = async () => {
+        if (!aiSuggestion) return;
+        
+        switch (aiSuggestion.action) {
+            case 'confirm':
+                await confirmReservation();
+                break;
+            case 'reject':
+                await rejectReservation();
+                break;
+            case 'collect':
+                await collectReservation();
+                break;
+            case 'complete':
+                await completeReservation();
+                break;
+        }
+    };
+
+    const getSuggestionLabel = (action: string) => {
+        switch (action) {
+            case 'confirm': return t('btn_confirm', lang);
+            case 'reject': return t('btn_reject', lang);
+            case 'collect': return t('btn_collect', lang);
+            case 'complete': return t('btn_complete', lang);
+            default: return action;
+        }
     };
 
     // Construct Invoice Data from Lease Data on the fly
@@ -321,6 +361,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             {/* INPUT AREA (Only in Chat) */}
             {activeTab === 'chat' && (
                 <div className="p-2 md:p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+                    
+                    {/* SMART SUGGESTION */}
+                    {aiSuggestion && (
+                        <div className="mb-3 mx-1 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 border border-purple-100 dark:border-purple-800 rounded-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-white/40 dark:bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                            <div className="p-2 bg-white dark:bg-slate-800 rounded-full text-purple-600 dark:text-purple-400 shadow-sm shrink-0">
+                                <Sparkles size={16} className="animate-pulse" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5">AI Suggestion</div>
+                                <div className="text-xs text-slate-700 dark:text-slate-300 truncate">{aiSuggestion.reason}</div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button 
+                                    onClick={handleSuggestionClick}
+                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95"
+                                >
+                                    {getSuggestionLabel(aiSuggestion.action)}
+                                </button>
+                                <button 
+                                    onClick={clearAiSuggestion}
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-black/20 rounded-full transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <form className="relative flex items-center gap-2" onSubmit={handleSend} autoComplete="off">
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors md:hidden">
                             <ImageIcon size={22} />

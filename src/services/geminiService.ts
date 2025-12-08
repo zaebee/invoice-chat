@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { InvoiceData, LeaseData } from "../types";
+import { InvoiceData, LeaseData, ChatMessage, LeaseStatus } from "../types";
 
 // --- SCHEMAS ---
 
@@ -107,6 +107,22 @@ const leaseSchema: Schema = {
   required: ["vehicle", "pickup", "dropoff", "pricing"]
 };
 
+const intentSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    action: {
+      type: Type.STRING,
+      enum: ["confirm", "reject", "collect", "complete", "none"],
+      description: "The suggested action for the Owner. Use 'none' if no clear action is implied."
+    },
+    reason: {
+      type: Type.STRING,
+      description: "Brief reason for the suggestion, e.g. 'Renter says they arrived'."
+    }
+  },
+  required: ["action"]
+};
+
 // --- API HELPER ---
 
 const getAiClient = () => {
@@ -172,5 +188,61 @@ export const parseLeaseText = async (text: string): Promise<Partial<LeaseData> |
   } catch (error) {
      console.error("Gemini Lease Parse Error:", error);
      throw error;
+  }
+};
+
+export const analyzeChatIntent = async (
+  messages: ChatMessage[],
+  status: LeaseStatus
+): Promise<{ action: 'confirm' | 'reject' | 'collect' | 'complete'; reason: string } | null> => {
+  try {
+    const ai = getAiClient();
+    
+    // Filter last 10 messages for context and format as transcript
+    const transcript = messages.slice(-10).map(m => {
+        const role = m.senderId === 'me' ? 'Owner' : (m.senderId === 'system' ? 'System' : 'Renter');
+        return `${role}: ${m.text}`;
+    }).join('\n');
+
+    const prompt = `
+      You are an AI assistant for a rental business. Analyze the conversation history between Owner and Renter to suggest the next logical workflow action for the Owner.
+      
+      Current Lease Status: "${status}"
+      
+      Workflow Rules:
+      1. If status is 'pending' or 'confirmation_owner':
+         - Suggest 'confirm' if the Renter confirms details or asks to proceed.
+         - Suggest 'reject' if the Owner/Renter decides to cancel or dates are unavailable.
+      2. If status is 'confirmed':
+         - Suggest 'collect' (Handover) ONLY if the Renter implies they are at the location, arrived, or ready to pick up the vehicle NOW.
+      3. If status is 'collected':
+         - Suggest 'complete' (Return) ONLY if the Renter implies they have returned the vehicle or finished the rental.
+      
+      Conversation Transcript:
+      ${transcript}
+      
+      If the conversation strongly implies one of these actions is needed right now, suggest it. Otherwise, return 'none'.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: intentSchema,
+        temperature: 0, // Deterministic
+      },
+    });
+
+    const jsonText = response.text;
+    if (!jsonText) return null;
+    const result = JSON.parse(jsonText);
+    
+    if (!result.action || result.action === 'none') return null;
+    
+    return result;
+  } catch (error) {
+    console.warn("Gemini Intent Analysis skipped/failed:", error);
+    return null;
   }
 };
