@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useChatStore } from '../stores/chatStore';
-import { Language, ChatSession, LeaseStatus } from '../types';
+import { Language, ChatSession } from '../types';
 import { t } from '../utils/i18n';
 import { Car, AlertTriangle, ChevronLeft, ChevronRight, CalendarDays, MapPin } from 'lucide-react';
 import { STATUS_CONFIG } from '../components/chat/ChatUtils';
@@ -13,10 +13,10 @@ interface SchedulePageProps {
 
 // Layout Constants
 const DAY_WIDTH = 60; // Pixels per day
-const BAR_HEIGHT = 40; // Height of the booking bar (increased for content)
-const BAR_GAP = 8; // Vertical gap between stacked bars
-const ROW_PADDING = 12; // Top/Bottom padding for the row
-const MIN_ROW_HEIGHT = 80; // Minimum height for a vehicle row
+const BAR_HEIGHT = 42; // Height of the booking bar
+const BAR_GAP = 6; // Vertical gap between stacked bars
+const ROW_PADDING = 10; // Top/Bottom padding for the row
+const MIN_ROW_HEIGHT = 70; // Minimum height for a vehicle row
 
 interface ProcessedSession extends ChatSession {
     tempStart: number;
@@ -45,17 +45,6 @@ const CurrentTimeIndicator = ({ startOffset, dayWidth }: { startOffset: number; 
     useEffect(() => {
         const calculatePos = () => {
             const now = new Date();
-            const start = new Date(now);
-            // Must match timelineStart logic in parent
-            // Since we can't access parent state directly easily without props, 
-            // we calculate offset directly if start timestamp is passed, 
-            // or we assume the offset calculation is consistent.
-            // Simplified: The parent passes the timelineStart timestamp.
-            
-            // Re-implementing logic:
-            // The timelineStart is (Today - START_OFFSET) at 00:00
-            // We need to find how many milliseconds have passed since timelineStart
-            
             const diff = now.getTime() - startOffset;
             const daysPassed = diff / (1000 * 60 * 60 * 24);
             setNowOffset(daysPassed * dayWidth);
@@ -73,7 +62,7 @@ const CurrentTimeIndicator = ({ startOffset, dayWidth }: { startOffset: number; 
             className="absolute top-0 bottom-0 w-px bg-red-500 z-30 pointer-events-none"
             style={{ left: nowOffset }}
         >
-            <div className="w-2 h-2 bg-red-500 rounded-full -ml-1 mt-10 shadow-sm" />
+            <div className="w-2.5 h-2.5 bg-red-500 rounded-full -ml-[4px] mt-11 shadow-sm ring-2 ring-white dark:ring-slate-900" />
         </div>
     );
 };
@@ -253,13 +242,13 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                 
                 <div className="flex items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:flex">
                     <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div> Confirmed
+                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm"></div> Confirmed
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div> Collected
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></div> Collected
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-amber-500"></div> Pending
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></div> Pending
                     </div>
                 </div>
             </div>
@@ -267,13 +256,13 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
             {/* Timeline Container - Unified Scroll View (Freeze Panes) */}
             <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 relative overscroll-contain">
                 
-                {/* Scroll Content Wrapper - Ensures sticky header expands to full width */}
+                {/* Scroll Content Wrapper */}
                 <div className="min-w-max">
                     {/* Header Row (Dates) - Sticky Top */}
                     <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-40 shadow-sm">
                         
-                        {/* Vehicle Column Header - Sticky Left (The Corner) - z-50 to stay above everything */}
-                        <div className="w-56 md:w-64 shrink-0 p-3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-50 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                        {/* Vehicle Column Header - Sticky Left (The Corner) */}
+                        <div className="w-60 md:w-72 shrink-0 p-3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-50 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
                             <span>{t('grp_vehicle', lang)}</span>
                             <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{vehicleGroups.length}</span>
                         </div>
@@ -284,11 +273,11 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 <div 
                                     key={i} 
                                     className={`shrink-0 border-r border-slate-100 dark:border-slate-800 p-2 text-center flex flex-col items-center justify-center transition-colors 
-                                        ${isToday(d) ? 'bg-blue-50/60 dark:bg-blue-900/20' : (isWeekend(d) ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900')}
+                                        ${isToday(d) ? 'bg-blue-50/60 dark:bg-blue-900/20' : (isWeekend(d) ? 'bg-slate-50/50 dark:bg-slate-900/50' : 'bg-white dark:bg-slate-900')}
                                     `}
                                     style={{ width: DAY_WIDTH }}
                                 >
-                                    <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                    <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600 dark:text-blue-400' : (isWeekend(d) ? 'text-red-400 dark:text-red-400/70' : 'text-slate-400 dark:text-slate-500')}`}>
                                         {d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
                                     </span>
                                     <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday(d) ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -297,7 +286,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 </div>
                             ))}
                             
-                            {/* Today Line inside header to align with columns (visual guide) */}
+                            {/* Today Line inside header */}
                             <CurrentTimeIndicator startOffset={timelineStart.getTime()} dayWidth={DAY_WIDTH} />
                         </div>
                     </div>
@@ -311,7 +300,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 style={{ height: group.rowHeight }}
                             >
                                 {/* Sticky Vehicle Name - Sticky Left */}
-                                <div className="w-56 md:w-64 shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-30 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
+                                <div className="w-60 md:w-72 shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-30 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm">
                                             <Car size={20} />
@@ -337,7 +326,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                         <div 
                                             key={i} 
                                             className={`shrink-0 border-r border-slate-100/80 dark:border-slate-800/50 h-full 
-                                                ${isToday(d) ? 'bg-blue-50/20 dark:bg-blue-900/10' : (isWeekend(d) ? 'bg-slate-50/30 dark:bg-slate-800/20' : '')}
+                                                ${isToday(d) ? 'bg-blue-50/20 dark:bg-blue-900/10' : (isWeekend(d) ? 'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPgo8cmVjdCB3aWR0aD0nNCcgaGVpZ2h0PSc0JyBmaWxsPSIjZmZmIi8+CjxwYXRoIGQ9J00wIDBMNCA0Wk00IDBMMCA0Wicgc3Ryb2tlPSIjZjFmMZVmNSIgc3Ryb2tlLXdpZHRoPScxJy8+Cjwvc3ZnPg==")] dark:bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0JyBoZWlnaHQ9JzQnPgo8cmVjdCB3aWR0aD0nNCcgaGVpZ2h0PSc0JyBmaWxsPSIjMGUxNzJhIi8+CjxwYXRoIGQ9J00wIDBMNCA0Wk00IDBMMCA0Wicgc3Ryb2tlPSIjMWUyOTNiIiBzdHJva2Utd2lkdGg9JzEnLz4KPC9zdmc+")]' : '')}
                                             `}
                                             style={{ width: DAY_WIDTH }}
                                         />
@@ -372,7 +361,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                     setTooltipPos({ x: e.clientX, y: e.clientY });
                                                 }}
                                                 onMouseLeave={() => setHoveredSession(null)}
-                                                className={`absolute rounded-xl border shadow-sm cursor-pointer hover:scale-[1.01] hover:shadow-lg hover:z-20 transition-all flex items-center px-2.5 gap-2 overflow-hidden whitespace-nowrap 
+                                                className={`absolute rounded-xl border shadow-sm cursor-pointer hover:scale-[1.01] hover:shadow-lg hover:z-20 transition-all flex items-center px-1 pr-2 gap-2 overflow-hidden whitespace-nowrap 
                                                     ${config.bg} ${config.border} dark:brightness-110`}
                                                 style={{ 
                                                     left: Math.max(0, left), 
@@ -386,63 +375,23 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${config.accent}`}></div>
 
                                                 {/* Avatar */}
-                                                <div className="w-6 h-6 rounded-full bg-white/50 border border-black/5 flex items-center justify-center overflow-hidden shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-white/80 border border-black/5 flex items-center justify-center overflow-hidden shrink-0 ml-1.5 shadow-sm">
                                                     {session.user.avatar ? (
                                                         <img src={session.user.avatar} className="w-full h-full object-cover" alt="" />
                                                     ) : (
-                                                        <span className={`text-[9px] font-bold ${config.text}`}>{session.user.name[0]}</span>
+                                                        <span className={`text-[10px] font-bold ${config.text}`}>{session.user.name[0]}</span>
                                                     )}
                                                 </div>
 
                                                 {/* Text Content */}
-                                                <div className="flex flex-col justify-center min-w-0 flex-1">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <span className={`text-[11px] font-bold truncate leading-none ${config.text}`}>{session.user.name}</span>
-                                                        {/* Price Tag */}
-                                                        {price > 0 && (
-                                                            <span className="text-[9px] font-mono font-bold bg-white/60 dark:bg-black/20 px-1.5 rounded-md border border-black/5 leading-none py-0.5">
-                                                                {price.toLocaleString()} {currency}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                <div className="flex flex-col justify-center min-w-0 flex-1 pl-1">
+                                                    <div className="text-[10px] font-bold truncate leading-none mb-0.5 text-slate-800 dark:text-slate-100">{session.user.name}</div>
+                                                    {price > 0 && (
+                                                        <div className="text-[9px] font-mono font-bold opacity-80 leading-none">
+                                                            {price.toLocaleString()} {currency}
+                                                        </div>
+                                                    )}
                                                 </div>
-
-                                                {/* Tooltip Popup */}
-                                                {hoveredSession === session.id && (
-                                                    <div 
-                                                        className="fixed z-50 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 w-64 animate-in fade-in zoom-in-95 duration-150 pointer-events-none"
-                                                        style={{ left: Math.min(tooltipPos.x + 20, window.innerWidth - 280), top: tooltipPos.y + 20 }}
-                                                    >
-                                                        <div className="flex items-center gap-3 mb-3">
-                                                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600">
-                                                                {session.user.avatar ? <img src={session.user.avatar} className="w-full h-full object-cover" alt="" /> : <span className="text-sm font-bold">{session.user.name[0]}</span>}
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-bold text-sm text-slate-800 dark:text-white">{session.user.name}</h4>
-                                                                <div className={`text-[10px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${config.bg} ${config.text} ${config.border}`}>
-                                                                    {config.icon} <span className="uppercase">{t(config.labelKey, lang)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div className="space-y-2 text-xs">
-                                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                                                <CalendarDays size={14} />
-                                                                <span>
-                                                                    {new Date(session.tempStart).toLocaleDateString()} <span className="text-slate-300">→</span> {new Date(session.tempEnd).toLocaleDateString()}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                                                <MapPin size={14} />
-                                                                <span className="truncate">{group.plate}</span>
-                                                            </div>
-                                                            <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                                                                <span className="text-slate-500 dark:text-slate-400 font-medium">Total Price</span>
-                                                                <span className="text-sm font-bold text-slate-800 dark:text-white">{price.toLocaleString()} {currency}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     })}
@@ -461,6 +410,61 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Tooltip Portal */}
+            {hoveredSession && (
+                <div 
+                    className="fixed z-[100] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 w-64 animate-in fade-in zoom-in-95 duration-150 pointer-events-none"
+                    style={{ left: Math.min(tooltipPos.x + 20, window.innerWidth - 280), top: Math.min(tooltipPos.y + 20, window.innerHeight - 150) }}
+                >
+                    {(() => {
+                        const session = sessions.find(s => s.id === hoveredSession);
+                        if (!session) return null;
+                        
+                        const status = session.reservationSummary?.status || 'pending';
+                        const config = STATUS_CONFIG[status] || STATUS_CONFIG['pending'];
+                        const price = session.reservationSummary?.price || 0;
+                        const currency = session.reservationSummary?.currency || 'THB';
+
+                        return (
+                            <>
+                                <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100 dark:border-slate-700">
+                                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm">
+                                        {session.user.avatar ? <img src={session.user.avatar} className="w-full h-full object-cover" alt="" /> : <span className="text-sm font-bold">{session.user.name[0]}</span>}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-sm text-slate-800 dark:text-white">{session.user.name}</h4>
+                                        <div className={`text-[9px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1 mt-1 ${config.bg} ${config.text} ${config.border}`}>
+                                            {config.icon} <span className="uppercase tracking-wide">{t(config.labelKey, lang)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-2 text-xs">
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <CalendarDays size={14} />
+                                        <span>
+                                            {session.reservationSummary?.pickupDate ? new Date(session.reservationSummary.pickupDate).toLocaleDateString() : 'N/A'} 
+                                            <span className="text-slate-300 mx-1">→</span> 
+                                            {session.reservationSummary?.dropoffDate ? new Date(session.reservationSummary.dropoffDate).toLocaleDateString() : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <MapPin size={14} />
+                                        <span className="truncate">{session.reservationSummary?.plateNumber}</span>
+                                    </div>
+                                    {price > 0 && (
+                                        <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200 mt-1">
+                                            <div className="w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[8px]">$</div>
+                                            <span>{price.toLocaleString()} {currency}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        );
+                    })()}
+                </div>
+            )}
         </div>
     );
 };
