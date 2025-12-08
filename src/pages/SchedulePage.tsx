@@ -19,6 +19,8 @@ const ROW_PADDING = 12; // Top/Bottom padding for the row
 const MIN_ROW_HEIGHT = 80; // Minimum height for a vehicle row
 
 interface ProcessedSession extends ChatSession {
+    tempStart: number;
+    tempEnd: number;
     layout: {
         lane: number;
         startDayOffset: number;
