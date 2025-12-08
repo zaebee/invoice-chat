@@ -18,10 +18,12 @@ import { useInvoice } from '../hooks/useInvoice';
 import { useLease } from '../hooks/useLease';
 import { useAiAssistant } from '../hooks/useAiAssistant';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useLanguage } from '../hooks/useLanguage';
 import { useChatStore } from '../stores/chatStore';
-import { Language, InvoiceData, LeaseData } from '../types';
+import { InvoiceData, LeaseData } from '../types';
 import { t } from '../utils/i18n';
 import { BrandLogo } from '../components/ui/BrandLogo';
+import { LanguageSelector } from '../components/ui/LanguageSelector';
 
 type DocType = 'invoice' | 'lease' | 'chat' | 'schedule';
 
@@ -29,7 +31,10 @@ export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const [docType, setDocType] = useState<DocType>('chat');
-  const [lang, setLang] = useState<Language>('en');
+  
+  // Use persistent language hook
+  const { lang, setLang } = useLanguage('en');
+  
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   
@@ -122,10 +127,6 @@ export default function EditorPage() {
     }
   };
 
-  const toggleLang = () => {
-      setLang(prev => prev === 'ru' ? 'en' : 'ru');
-  };
-
   const getLeasePreviewLink = () => {
       let link = `/preview/lease/${lease.data.reservationId}`;
       if (lease.data.contractTemplateId) {
@@ -199,13 +200,7 @@ export default function EditorPage() {
                     <button onClick={() => setDocType('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><Car size={18} /></button>
                  </div>
 
-                 <button
-                    onClick={toggleLang}
-                    className="text-slate-400 hover:text-blue-500 transition-colors p-2 rounded-full hover:bg-slate-100"
-                    title="Switch Language"
-                >
-                    <Globe size={20} />
-                </button>
+                 <LanguageSelector currentLang={lang} onLanguageChange={setLang} />
              </div>
         </header>
 
