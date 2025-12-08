@@ -2,31 +2,30 @@
 # 🚀 Ownima Pro: Architecture & Roadmap
 
 ## 🧐 Current Status Review
-**Phases 1-6 & Chat Foundation Complete.**
-The application has evolved into a robust **PWA (Progressive Web App)** with offline capabilities, real-time chat, and a "Mobile-First" design.
+**Phases 1-7 Complete. Phase 8 (Intelligence) In Progress.**
+The application is now a feature-complete **PWA Rental Workspace** with a Gantt-chart schedule view, full internationalization, and dark mode.
 
 **Core Strengths:**
 *   **Dual Engine:** Seamlessly handles structured Invoices and complex Lease Agreements.
 *   **Hybrid Rendering:** Client-Side PDF generation (`@react-pdf`) + Server-Side HTML previews.
 *   **Secure:** Integrated Token-based Authentication & Iframe Handshake.
-*   **Offline-Ready:** Service Worker caching & IndexedDB persistence.
-*   **Collaborative:** Real-time Chat with media sharing and system status updates.
+*   **Offline-Ready:** Service Worker caching, IndexedDB persistence, & Background Sync logic.
+*   **Collaborative:** Real-time Chat with media, system events, and lease lifecycle actions.
+*   **Visual Schedule:** Tetris-packed Gantt chart for vehicle availability (`SchedulePage`).
 
 ---
 
-## 🚧 Current Focus: Phase 7 - Intelligence & Polish
+## 🚧 Current Focus: Phase 8 - AI Intelligence
 
-We are now enhancing the "Smart" aspects of the workspace.
+We are now enhancing the "Smart" aspects using Google Gemini.
 
-### 1. 🤖 AI Chat Participant
+### 1. 🤖 AI Chat Copilot
 *   **Goal:** Allow users to invoke AI within the chat stream.
-*   **Interaction:** User types `@AI draft reply...` -> System generates text.
-*   **Context:** AI has access to `LeaseData` to answer questions like "When is the return date?".
+*   **Interaction:** User types `@AI` -> System generates context-aware replies.
+*   **Context:** AI has access to `LeaseData` (Price, Dates, Vehicle) to answer questions like "Is the deposit paid?".
 
-### 2. 💅 Final Polish
-*   **Transitions:** Smooth layout shifts between List/Room views on mobile.
-*   **Gestures:** Swipe-to-archive (Implemented).
-*   **Virtualization:** Optimize chat list for 1000+ sessions.
+### 2. 🧠 Smart Actions
+*   **Intent Detection:** AI analyzes chat messages to suggest status changes (e.g., "Customer said they are here" -> Suggest "Collect Vehicle").
 
 ---
 
@@ -35,25 +34,24 @@ We are now enhancing the "Smart" aspects of the workspace.
 ### ✅ Phase 1-5: Foundation
 *   Refactoring, PDF Engine, Mobile Wizard, API Integration, Auth.
 
-### ✅ Phase 6: Digital Signatures (The "Paperless" Step)
+### ✅ Phase 6: Digital Signatures
 *   **Capture:** `SignaturePad` component integrated.
 *   **Storage:** Base64 signatures stored in `LeaseData`.
-*   **Output:** Signatures rendered in PDF and HTML previews.
 
-### ✅ Phase 6.5: Chat & PWA (The "Field" Step)
-*   **PWA:** `manifest.json` and `sw.js` for "Add to Home Screen" and offline shell.
-*   **Persistence:** Migrated from `localStorage` to `IndexedDB` for robust data storage.
-*   **Sync:** Background sync logic (swr) when app regains focus.
-*   **Media:** Image sharing enabled in Chat.
-*   **UI:** "Future UI" Header with visual timeline and smart status.
+### ✅ Phase 7: Chat, PWA & Scheduler
+*   **PWA:** `manifest.json` and `sw.js` for "Add to Home Screen".
+*   **Chat:** Real-time SSE, Ntfy integration, Media sharing, Read receipts.
+*   **Lifecycle:** Confirm/Reject/Collect/Complete actions within chat bubbles.
+*   **Schedule:** Virtualized Gantt chart view for fleet management.
+*   **Polish:** Dark Mode (`useTheme`), i18n (`useLanguage` with EN/RU/TH/VI/ID).
 
 ---
 
-## 🔮 The Future: "Pro" Features Roadmap
+## 🔮 Future Roadmap
 
-### 📅 Phase 8: Dashboard & Analytics
-*   **History:** List of past generated PDFs (local history).
-*   **Stats:** "Total Revenue this month", "Active Cars".
+### 📊 Phase 9: Dashboard & Analytics
+*   **Stats:** "Total Revenue", "Utilization Rate".
+*   **Exports:** Bulk PDF export.
 
 ### 🧪 Technical Debt
 *   **Tests:** Unit tests for pricing logic.

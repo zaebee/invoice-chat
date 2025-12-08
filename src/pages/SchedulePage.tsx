@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useChatStore } from '../stores/chatStore';
 import { Language, ChatSession } from '../types';
 import { t } from '../utils/i18n';
@@ -67,9 +67,6 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
         // Group by Vehicle
         sessions.forEach(s => {
             if (s.isArchived) return;
-            // Only show confirmed/active bookings or pending ones.
-            // You might want to filter out 'cancelled' or 'rejected' if they clutter the view,
-            // but for now we keep them to show history/conflicts.
             
             const summary = s.reservationSummary;
             const plate = summary?.plateNumber || 'Unknown';
@@ -195,7 +192,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     return (
         <div className="flex flex-col h-full bg-white text-slate-900">
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white z-30 shadow-sm relative">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white z-30 shadow-sm relative shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-slate-800">
                         <CalendarDays className="text-blue-600" />
@@ -208,7 +205,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
+                <div className="flex items-center gap-4 text-xs font-medium text-slate-500 hidden sm:flex">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-indigo-500"></div> Confirmed
                     </div>
@@ -221,121 +218,126 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                 </div>
             </div>
 
-            {/* Timeline Container */}
-            <div className="flex-1 overflow-hidden relative flex flex-col bg-slate-50/50">
+            {/* Timeline Container - Unified Scroll View */}
+            <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/50 relative">
                 
-                {/* Header Row (Dates) */}
-                <div className="flex border-b border-slate-200 bg-white sticky top-0 z-20 shadow-sm">
-                    {/* Vehicle Column Header */}
-                    <div className="w-56 md:w-64 shrink-0 p-3 border-r border-slate-200 bg-slate-50/80 backdrop-blur-sm font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 z-30 flex items-center justify-between">
-                        <span>{t('grp_vehicle', lang)}</span>
-                        <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600">{vehicleGroups.length}</span>
+                {/* Scroll Content Wrapper - Ensures sticky header expands to full width */}
+                <div className="min-w-max">
+                    {/* Header Row (Dates) - Sticky Top */}
+                    <div className="flex border-b border-slate-200 bg-white sticky top-0 z-40 shadow-sm">
+                        
+                        {/* Vehicle Column Header - Sticky Left (The Corner) */}
+                        <div className="w-56 md:w-64 shrink-0 p-3 border-r border-slate-200 bg-slate-50 z-50 font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                            <span>{t('grp_vehicle', lang)}</span>
+                            <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600">{vehicleGroups.length}</span>
+                        </div>
+                        
+                        {/* Date Columns */}
+                        <div className="flex">
+                            {days.map((d, i) => (
+                                <div 
+                                    key={i} 
+                                    className={`shrink-0 border-r border-slate-100 p-2 text-center flex flex-col items-center justify-center transition-colors ${isToday(d) ? 'bg-blue-50/60' : 'bg-white'}`}
+                                    style={{ width: DAY_WIDTH }}
+                                >
+                                    <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600' : 'text-slate-400'}`}>
+                                        {d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
+                                    </span>
+                                    <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday(d) ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'text-slate-700'}`}>
+                                        {d.getDate()}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                    {/* Date Columns */}
-                    <div className="flex">
-                        {days.map((d, i) => (
+
+                    {/* Rows (Vehicles) */}
+                    <div>
+                        {vehicleGroups.map((group) => (
                             <div 
-                                key={i} 
-                                className={`shrink-0 border-r border-slate-100 p-2 text-center flex flex-col items-center justify-center transition-colors ${isToday(d) ? 'bg-blue-50/60' : 'bg-white'}`}
-                                style={{ width: DAY_WIDTH }}
+                                key={group.id} 
+                                className="flex border-b border-slate-200/60 hover:bg-slate-50 transition-colors group relative bg-white"
+                                style={{ height: group.rowHeight }}
                             >
-                                <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    {d.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short' })}
-                                </span>
-                                <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isToday(d) ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'text-slate-700'}`}>
-                                    {d.getDate()}
+                                {/* Sticky Vehicle Name - Sticky Left */}
+                                <div className="w-56 md:w-64 shrink-0 p-4 border-r border-slate-200 bg-white group-hover:bg-slate-50 sticky left-0 z-30 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 border border-slate-200/50 shadow-sm">
+                                            <Car size={20} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-bold text-sm text-slate-800 truncate leading-tight mb-1" title={group.name}>{group.name}</div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">{group.plate}</span>
+                                                {group.laneCount > 1 && (
+                                                    <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 px-1.5 py-0.5 rounded font-medium border border-orange-100">
+                                                        <AlertTriangle size={10} /> {group.laneCount} overlaps
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Timeline Track */}
+                                <div className="relative flex" style={{ width: days.length * DAY_WIDTH }}>
+                                    {/* Grid Lines (Background) */}
+                                    {days.map((d, i) => (
+                                        <div 
+                                            key={i} 
+                                            className={`shrink-0 border-r border-slate-100/80 h-full ${isToday(d) ? 'bg-blue-50/20' : ''}`}
+                                            style={{ width: DAY_WIDTH }}
+                                        />
+                                    ))}
+
+                                    {/* Bookings Layer */}
+                                    {group.bookings.map(session => {
+                                        const { left, width, lane } = session.layout;
+                                        
+                                        // Visibility Optimization: Skip if totally out of view (simplified)
+                                        if (left + width < 0) return null;
+
+                                        const status = session.reservationSummary?.status || 'pending';
+                                        const config = STATUS_CONFIG[status] || STATUS_CONFIG['pending'];
+                                        
+                                        // Calculate Top Position based on Lane
+                                        const top = ROW_PADDING + (lane * (BAR_HEIGHT + BAR_GAP));
+
+                                        return (
+                                            <div
+                                                key={session.id}
+                                                onClick={() => navigate(`/chat/detail/${session.id}`)}
+                                                className={`absolute rounded-lg border shadow-sm cursor-pointer hover:brightness-95 hover:scale-[1.01] hover:shadow-md hover:z-20 transition-all flex items-center px-2 gap-1.5 overflow-hidden whitespace-nowrap ${config.bg} ${config.border} ${config.text}`}
+                                                style={{ 
+                                                    left: Math.max(0, left), 
+                                                    width: Math.max(width - 4, 30), // Minimum visual width
+                                                    height: BAR_HEIGHT,
+                                                    top,
+                                                    zIndex: 10 + lane 
+                                                }}
+                                                title={`${session.user.name} • ${status} • ${new Date(session.tempStart).toLocaleDateString()} - ${new Date(session.tempEnd).toLocaleDateString()}`}
+                                            >
+                                                <div className="shrink-0 opacity-80">{config.icon}</div>
+                                                <div className="flex flex-col justify-center min-w-0">
+                                                    <span className="text-[10px] font-bold truncate leading-none mb-0.5">{session.user.name}</span>
+                                                    <span className="text-[9px] opacity-75 truncate leading-none font-medium uppercase tracking-wide">{t(config.labelKey, lang)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         ))}
-                    </div>
-                </div>
 
-                {/* Rows (Vehicles) */}
-                <div className="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar">
-                    {vehicleGroups.map((group) => (
-                        <div 
-                            key={group.id} 
-                            className="flex border-b border-slate-200/60 hover:bg-slate-50 transition-colors group relative bg-white"
-                            style={{ height: group.rowHeight }}
-                        >
-                            {/* Sticky Vehicle Name */}
-                            <div className="w-56 md:w-64 shrink-0 p-4 border-r border-slate-200 bg-white group-hover:bg-slate-50 sticky left-0 z-10 flex flex-col justify-center shadow-[4px_0_10px_-4px_rgba(0,0,0,0.05)]">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 border border-slate-200/50 shadow-sm">
-                                        <Car size={20} />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="font-bold text-sm text-slate-800 truncate leading-tight mb-1" title={group.name}>{group.name}</div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">{group.plate}</span>
-                                            {group.laneCount > 1 && (
-                                                <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 px-1.5 py-0.5 rounded font-medium border border-orange-100">
-                                                    <AlertTriangle size={10} /> {group.laneCount} overlaps
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
+                        {vehicleGroups.length === 0 && (
+                            <div className="p-20 text-center flex flex-col items-center justify-center gap-4 text-slate-400">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                                    <Car size={32} className="opacity-50" />
                                 </div>
+                                <p className="font-medium">{t('sched_no_vehicles', lang)}</p>
                             </div>
-
-                            {/* Timeline Track */}
-                            <div className="relative flex" style={{ width: days.length * DAY_WIDTH }}>
-                                {/* Grid Lines (Background) */}
-                                {days.map((d, i) => (
-                                    <div 
-                                        key={i} 
-                                        className={`shrink-0 border-r border-slate-100/80 h-full ${isToday(d) ? 'bg-blue-50/20' : ''}`}
-                                        style={{ width: DAY_WIDTH }}
-                                    />
-                                ))}
-
-                                {/* Bookings Layer */}
-                                {group.bookings.map(session => {
-                                    const { left, width, lane } = session.layout;
-                                    
-                                    // Visibility Optimization: Skip if totally out of view
-                                    if (left + width < 0 || left > days.length * DAY_WIDTH) return null;
-
-                                    const status = session.reservationSummary?.status || 'pending';
-                                    const config = STATUS_CONFIG[status] || STATUS_CONFIG['pending'];
-                                    
-                                    // Calculate Top Position based on Lane
-                                    const top = ROW_PADDING + (lane * (BAR_HEIGHT + BAR_GAP));
-
-                                    return (
-                                        <div
-                                            key={session.id}
-                                            onClick={() => navigate(`/chat/detail/${session.id}`)}
-                                            className={`absolute rounded-lg border shadow-sm cursor-pointer hover:brightness-95 hover:scale-[1.01] hover:shadow-md hover:z-20 transition-all flex items-center px-2 gap-1.5 overflow-hidden whitespace-nowrap ${config.bg} ${config.border} ${config.text}`}
-                                            style={{ 
-                                                left: Math.max(0, left), 
-                                                width: Math.max(width - 4, 30), // Minimum visual width
-                                                height: BAR_HEIGHT,
-                                                top,
-                                                zIndex: 10 + lane 
-                                            }}
-                                            title={`${session.user.name} • ${status} • ${new Date(session.tempStart).toLocaleDateString()} - ${new Date(session.tempEnd).toLocaleDateString()}`}
-                                        >
-                                            <div className="shrink-0 opacity-80">{config.icon}</div>
-                                            <div className="flex flex-col justify-center min-w-0">
-                                                <span className="text-[10px] font-bold truncate leading-none mb-0.5">{session.user.name}</span>
-                                                <span className="text-[9px] opacity-75 truncate leading-none font-medium uppercase tracking-wide">{t(config.labelKey, lang)}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ))}
-
-                    {vehicleGroups.length === 0 && (
-                        <div className="p-20 text-center flex flex-col items-center justify-center gap-4 text-slate-400">
-                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                                <Car size={32} className="opacity-50" />
-                            </div>
-                            <p className="font-medium">{t('sched_no_vehicles', lang)}</p>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
