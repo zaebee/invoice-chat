@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { inject } from '@vercel/analytics';
 import App from './App';
 import { registerSW } from './registerSW';
 
@@ -9,6 +10,7 @@ if (!rootElement) {
 }
 
 registerSW();
+inject();
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
