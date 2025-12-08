@@ -1,20 +1,21 @@
+// src/services/ownimaApi.ts
 
-
-
-import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
+import { IBooking } from "../core/models";
+import { mapApiResponseToBooking } from "../domains/vehicle/adapters/reservationAdapter";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
 
-// @ts-ignore
-const BASE_RESERVATION_URL = process.env.OWNIMA_API_URL || 'https://stage.ownima.com/api/v1/reservation';
-// Derive API V1 Root by removing /reservation
-const API_V1_ROOT = BASE_RESERVATION_URL.replace(/\/reservation\/?$/, '');
+// --- CONFIGURATION ---
 
+const BASE_RESERVATION_URL = process.env.OWNIMA_API_URL || 'https://stage.ownima.com/api/v1/reservation';
+const API_V1_ROOT = BASE_RESERVATION_URL.replace(/\/reservation\/?$/, '');
 const INVOICE_ENDPOINT = `${API_V1_ROOT}/finance/invoice`;
 const OWNER_PROFILE_ENDPOINT = `${API_V1_ROOT}/rider/owner`;
-const CHAT_BASE_URL = 'https://stage.ownima.com'; // Dedicated Chat/Ntfy domain
-const AVATAR_BASE_URL = 'https://stage.ownima.com';
+const CHAT_BASE_URL = 'https://stage.ownima.com';
 
+// --- INTERFACES ---
+
+// This interface remains as it describes a specific, non-core API entity.
 interface OwnerProfile {
     id: string;
     username: string;
@@ -24,211 +25,11 @@ interface OwnerProfile {
     bio?: string;
 }
 
-const humanizeSource = (source: string | null | undefined): string => {
-    if (!source) return '';
-    const map: Record<string, string> = {
-        'SOURCE_ONLINE_RIDER_APP': 'Rider App',
-        'SOURCE_ONLINE_BOOKING_WEB': 'Website',
-        'SOURCE_OFFLINE_WALK_IN': 'Walk-in'
-    };
-    
-    if (map[source]) return map[source];
-    
-    // Generic fallback: SOURCE_SOME_THING -> Some Thing
-    return source
-        .replace(/^SOURCE_/, '')
-        .split('_')
-        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ');
-};
-
-const mapApiStatus = (rawStatus: string | undefined): LeaseStatus => {
-    if (!rawStatus) return 'pending';
-    
-    const s = rawStatus.toUpperCase();
-    
-    if (s.includes('COLLECTED')) return 'collected';
-    if (s.includes('COMPLETED')) return 'completed';
-    if (s.includes('CONFIRMED')) return 'confirmed';
-    if (s.includes('OVERDUE')) return 'overdue';
-    if (s.includes('CANCELLED')) return 'cancelled';
-    if (s.includes('MAINTENANCE')) return 'maintenance';
-    if (s.includes('CONFLICT')) return 'conflict';
-    if (s.includes('NO_RESPONSE')) return 'no_response';
-    
-    // Confirmation states logic
-    if (s.includes('CONFIRMATION')) {
-        if (s.includes('RIDER')) return 'confirmation_rider';
-        if (s.includes('OWNER')) return 'confirmation_owner';
-        return 'pending'; // Fallback or old "RESERVATION_CONFIRMATION"
-    }
-    
-    // Fallback logic for generic pending
-    if (s.includes('PENDING')) return 'pending';
-
-    return 'pending';
-};
-
-// Helper to safely combine date and time into a valid ISO string
-const combineDateTime = (dateIso: string | undefined, timeStr: string | undefined): string | undefined => {
-    if (!dateIso) return undefined;
-    if (!timeStr) return dateIso;
-    
-    // If timeStr is already full ISO (contains T), prefer it
-    if (timeStr.includes('T')) return timeStr;
-
-    // Extract YYYY-MM-DD from the dateIso
-    const datePart = dateIso.split('T')[0];
-    
-    // Check if timeStr is a valid time format (HH:MM or HH:MM:SS)
-    // Simple validation: contains colon
-    if (timeStr.includes(':')) {
-        return `${datePart}T${timeStr}`;
-    }
-
-    return dateIso;
-};
-
-const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): Partial<LeaseData> => {
-    try {
-        const r = json.reservation;
-        if (!r) return {};
-
-        const v = r.vehicle || {};
-        const i = r.invoice || {};
-        const p = r.pick_up || {};
-        const d = r.drop_off || {};
-        const rider = r.rider || {};
-
-        // Construct vehicle details
-        const info = v.general_info || {};
-        const specs = v.specification_info || {};
-        
-        const brand = info.brand || '';
-        const model = info.model || '';
-        const year = info.year || '';
-        const body = info.body_type || '';
-        const trans = specs.transmission || '';
-        const color = info.color || '';
-
-        // Vehicle Image Mapping
-        // Prefer small preview 's' for UI, fallback to cover
-        let vehicleImageUrl = undefined;
-        if (v.picture) {
-            const path = v.picture.cover_previews?.s || v.picture.cover;
-            if (path) {
-                vehicleImageUrl = `${AVATAR_BASE_URL}${path}`;
-            }
-        }
-
-        // Time Formatting with Highlighting
-        const formatTime = (timeObj: any, early: boolean, late: boolean) => {
-            if (!timeObj || !timeObj.start || !timeObj.end) return '';
-            let t = `${timeObj.start} - ${timeObj.end}`;
-            if (early) t += ' (Early)';
-            if (late) t += ' (Late)';
-            return t;
-        };
-
-        const pickupTime = formatTime(p.collect_time, p.asked_early_pickup, p.asked_late_pickup);
-        const dropoffTime = formatTime(d.return_time, d.asked_early_return, d.asked_late_return);
-
-        // Determine Display ID (Humanized)
-        let reservationId = r.id;
-        if (r.humanized?.owner_id && r.humanized?.id) {
-            reservationId = `${r.humanized.owner_id}-${r.humanized.id}`;
-        }
-
-        // Map Status
-        const statusRaw = r.humanized?.status || r.status;
-        const status = mapApiStatus(statusRaw);
-
-        // Extra Options Parsing
-        // The API returns selected_extra_options as an array of objects wrapping the actual option and calculation
-        const rawOptions = r.selected_extra_options || [];
-        const extraOptions = rawOptions.map((item: any) => ({
-            name: item.extra_option?.name || 'Option',
-            price: item.calculated_price ?? 0
-        }));
-
-        // Owner Info Mapping
-        const ownerSurname = ownerProfile?.rent_service_name || ownerProfile?.name || 'Your Surname';
-        const ownerAddress = ownerProfile?.address || 'Address line';
-        // Use username or bio as contact placeholder since phone/email are not explicitly in profile schema
-        const ownerContact = ownerProfile?.username || '+000000000';
-
-        // Pickup/Dropoff Fees logic
-        const pickupFee = (p.asked_early_pickup || p.asked_late_pickup) ? (p.extra_price || 0) : 0;
-        const dropoffFee = (d.asked_early_return || d.asked_late_return) ? (d.extra_price || 0) : 0;
-
-        // Avatar Mapping
-        const avatarPath = rider.avatar;
-        const avatarUrl = avatarPath ? `${AVATAR_BASE_URL}${avatarPath}` : undefined;
-
-        // Exact Times for Scheduler (Prefer TimeRange start/end combined with date, fallback to reservation date_from/to)
-        const exactPickupDate = combineDateTime(r.date_from, p.collect_time?.start);
-        const exactDropoffDate = combineDateTime(r.date_to, d.return_time?.end);
-
-        return {
-            id: r.id, // Store real UUID for API calls
-            reservationId: reservationId, // Store humanized ID for Display
-            status: status,
-            source: humanizeSource(r.humanized?.source),
-            createdDate: r.created_date ? r.created_date.split('T').join(' ').slice(0, 16) : '',
-            deadline: r.deadline_timestamp ? r.deadline_timestamp * 1000 : undefined, // Convert Sec -> Ms
-            vehicle: {
-                name: `${brand} ${model}, ${year}`.trim(),
-                details: [body, trans, color].filter(Boolean).join(' • '),
-                plate: info.reg_number || '',
-                imageUrl: vehicleImageUrl
-            },
-            pickup: {
-                date: r.date_from ? r.date_from.split('T')[0] : '',
-                time: pickupTime,
-                fee: pickupFee
-            },
-            dropoff: {
-                date: r.date_to ? r.date_to.split('T')[0] : '',
-                time: dropoffTime,
-                fee: dropoffFee
-            },
-            // Add exact times for scheduler
-            exactPickupDate,
-            exactDropoffDate,
-            pricing: {
-                daysRegular: i.prices?.regular_price_days || 0,
-                priceRegular: i.prices?.regular_price_total || 0,
-                daysSeason: i.prices?.season_price_days || 0,
-                priceSeason: i.prices?.season_price_total || 0,
-                // Use template deposit as fallback if reservation deposit is 0
-                deposit: v.price_templates?.deposit_amount || 0,
-                total: i.total_price || r.total_price || 0,
-                currency: r.currency || 'THB'
-            },
-            extraOptions: extraOptions,
-            renter: {
-                surname: rider.name || '',
-                contact: [rider.phone, rider.email].filter(Boolean).join(' • '),
-                passport: '',
-                avatar: avatarUrl
-            },
-            owner: {
-                surname: ownerSurname,
-                contact: ownerContact,
-                address: ownerAddress
-            }
-        };
-    } catch (error) {
-        console.error("Mapping Error", error);
-        return {};
-    }
-};
+// --- HELPER FUNCTIONS ---
 
 const getAuthHeaders = (): Record<string, string> => {
     const token = authService.getToken();
-    const headers: Record<string, string> = {
-        'accept': 'application/json'
-    };
+    const headers: Record<string, string> = { 'accept': 'application/json' };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
@@ -241,12 +42,10 @@ const fetchOwnerProfile = async (ownerId: string, signal?: AbortSignal): Promise
             headers: getAuthHeaders(),
             signal
         });
-
         if (!response.ok) {
             console.warn(`Failed to fetch owner profile: ${response.status}`);
             return null;
         }
-
         return await response.json();
     } catch (error: any) {
         if (error.name !== 'AbortError') {
@@ -256,98 +55,77 @@ const fetchOwnerProfile = async (ownerId: string, signal?: AbortSignal): Promise
     }
 };
 
-export const fetchReservation = async (id: string, signal?: AbortSignal): Promise<Partial<LeaseData> | null> => {
+// --- PRIMARY API SERVICES (Refactored) ---
+
+/**
+ * Fetches reservation data from the API and maps it to the generic IBooking model.
+ * @param id - The reservation ID.
+ * @param signal - An optional AbortSignal.
+ * @returns A Promise resolving to an IBooking object or null if not found.
+ */
+export const fetchBooking = async (id: string, signal?: AbortSignal): Promise<IBooking | null> => {
     try {
         const response = await fetch(`${BASE_RESERVATION_URL}/${id}`, {
             headers: getAuthHeaders(),
             signal
         });
 
-        if (response.status === 401) {
-            throw new Error("Unauthorized");
-        }
-
-        if (!response.ok) {
-            // Check for 404 specifically
-            if (response.status === 404) return null;
-            throw new Error(`API Error: ${response.status}`);
-        }
+        if (response.status === 401) throw new Error("Unauthorized");
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const data = await response.json();
         
-        let ownerProfile = null;
         const ownerId = data.reservation?.owner_id;
-        
-        if (ownerId) {
-            // Best effort profile fetch
-            try {
-                ownerProfile = await fetchOwnerProfile(ownerId, signal);
-            } catch (e) { 
-                console.warn("Profile fetch skipped", e);
-            }
-        }
+        const ownerProfile = ownerId ? await fetchOwnerProfile(ownerId, signal) : null;
 
-        return mapResponseToLeaseData(data, ownerProfile);
+        // The adapter now handles the entire transformation.
+        return mapApiResponseToBooking(data, ownerProfile);
 
     } catch (error: any) {
-        if (error.name === 'AbortError') throw error;
-        // Propagate error to let the UI handle "Offline" vs "Not Found" logic
-        throw error;
+        if (error.name === 'AbortError') throw error; // Don't log aborts as errors
+        console.error("fetchBooking error:", error);
+        throw error; // Propagate error for UI to handle.
     }
 };
 
 /**
- * Loads full lease data including fetching from API, generating QR code,
- * and merging with default values to ensure a complete object.
+ * Loads the full booking data, including generating a QR code.
+ * This function ensures a complete, UI-ready IBooking object is returned.
+ * @param id - The reservation ID.
+ * @param signal - An optional AbortSignal.
+ * @returns A Promise resolving to a complete IBooking object.
  */
-export const loadLeaseData = async (id: string, signal?: AbortSignal): Promise<LeaseData> => {
-    // 1. Fetch data from API (now includes owner profile fetch)
-    const apiData = await fetchReservation(id, signal);
+export const loadBookingData = async (id: string, signal?: AbortSignal): Promise<IBooking> => {
+    const booking = await fetchBooking(id, signal);
     
-    if (!apiData) {
+    if (!booking) {
         throw new Error("Reservation not found");
     }
 
-    // 2. Generate QR Code
-    let qrCodeUrl = undefined;
+    // Generate QR Code and add it to the booking's metadata.
     try {
         const url = `https://stage.ownima.com/qr/${id}`;
-        qrCodeUrl = await QRCode.toDataURL(url, { margin: 1, width: 200 });
+        const qrCodeUrl = await QRCode.toDataURL(url, { margin: 1, width: 200 });
+        booking.metadata.qrCodeUrl = qrCodeUrl;
     } catch (e) {
-        console.error("QR Error", e);
+        console.error("QR Code generation failed:", e);
+        // Do not block return if QR fails; can be handled gracefully in UI.
     }
 
-    // 3. Merge with default structure
-    // Deep merge specific objects to avoid overwriting entire objects with partial data
-    return {
-        ...INITIAL_LEASE,
-        ...apiData,
-        // reservationId: id, // Ensure ID matches what was requested
-        vehicle: { ...INITIAL_LEASE.vehicle, ...apiData.vehicle },
-        pickup: { ...INITIAL_LEASE.pickup, ...apiData.pickup },
-        dropoff: { ...INITIAL_LEASE.dropoff, ...apiData.dropoff },
-        pricing: { ...INITIAL_LEASE.pricing, ...apiData.pricing },
-        owner: { ...INITIAL_LEASE.owner, ...apiData.owner },
-        renter: { ...INITIAL_LEASE.renter, ...apiData.renter },
-        qrCodeUrl: qrCodeUrl
-    };
+    return booking;
 };
+
+
+// --- UNCHANGED SERVICES (Invoice, Chat, etc.) ---
+// These services are not directly tied to the LeaseData model and remain as they were.
 
 export const fetchInvoiceHtml = async (reservationId: string, templateId: string): Promise<string> => {
     try {
         const url = `${INVOICE_ENDPOINT}/${reservationId}/${templateId}?output=html`;
-        const response = await fetch(url, {
-            headers: getAuthHeaders()
-        });
-
-        if (response.status === 401) {
-            throw new Error("Unauthorized");
-        }
-
-        if (!response.ok) {
-             throw new Error(`Invoice API Error: ${response.status}`);
-        }
-
+        const response = await fetch(url, { headers: getAuthHeaders() });
+        if (response.status === 401) throw new Error("Unauthorized");
+        if (!response.ok) throw new Error(`Invoice API Error: ${response.status}`);
         return await response.text();
     } catch (error) {
         console.error("Fetch Invoice HTML Error", error);
@@ -358,18 +136,9 @@ export const fetchInvoiceHtml = async (reservationId: string, templateId: string
 export const fetchInvoicePdfBlob = async (reservationId: string, templateId: string): Promise<Blob> => {
     try {
         const url = `${INVOICE_ENDPOINT}/${reservationId}/${templateId}?output=pdf`;
-        const response = await fetch(url, {
-            headers: getAuthHeaders()
-        });
-
-        if (response.status === 401) {
-            throw new Error("Unauthorized");
-        }
-
-        if (!response.ok) {
-             throw new Error(`Invoice API Error: ${response.status}`);
-        }
-
+        const response = await fetch(url, { headers: getAuthHeaders() });
+        if (response.status === 401) throw new Error("Unauthorized");
+        if (!response.ok) throw new Error(`Invoice API Error: ${response.status}`);
         return await response.blob();
     } catch (error) {
         console.error("Fetch Invoice PDF Error", error);
@@ -377,45 +146,21 @@ export const fetchInvoicePdfBlob = async (reservationId: string, templateId: str
     }
 };
 
-// --- CHAT & HISTORY API ---
-
 export interface HistoryEvent {
-    // Assuming structure based on "confirmations" array item
     confirmation_date: string;
     confirmation_note?: string;
     status: number | string;
-    meta?: {
-        reason_hint?: string;
-        confirmed_by?: string;
-        [key: string]: any;
-    };
+    meta?: { [key: string]: any; };
     [key: string]: any;
 }
 
 export const fetchReservationHistory = async (id: string, signal?: AbortSignal): Promise<HistoryEvent[]> => {
     try {
-        const response = await fetch(`${BASE_RESERVATION_URL}/${id}/history`, {
-             headers: getAuthHeaders(),
-             signal
-        });
+        const response = await fetch(`${BASE_RESERVATION_URL}/${id}/history`, { headers: getAuthHeaders(), signal });
         if (response.status === 401) throw new Error("Unauthorized");
         if (!response.ok) throw new Error("Network response not ok");
-        
         const data = await response.json();
-        
-        // Handle nested structure: { history: { confirmations: [] } }
-        if (data.history) {
-            if (Array.isArray(data.history.confirmations)) {
-                return data.history.confirmations;
-            }
-            if (Array.isArray(data.history)) {
-                return data.history;
-            }
-        }
-        
-        if (Array.isArray(data)) return data;
-
-        return [];
+        return data.history?.confirmations || data.history || data || [];
     } catch (e: any) {
         if (e.name === 'AbortError') throw e;
         return [];
@@ -423,21 +168,15 @@ export const fetchReservationHistory = async (id: string, signal?: AbortSignal):
 };
 
 export const fetchNtfyMessages = async (topicId: string, signal?: AbortSignal) => {
-    // Uses Ntfy JSON format (NDJSON)
     try {
         const response = await fetch(`${CHAT_BASE_URL}/chat-${topicId}/json?poll=1&since=all`, { signal });
         if (!response.ok) throw new Error("Chat unreachable");
         const text = await response.text();
-        
-        // Parse NDJSON (Newline Delimited JSON)
-        return text.trim().split('\n')
-            .map(line => {
-                try { return JSON.parse(line); } catch(e) { return null; }
-            })
-            .filter((msg: any) => msg && msg.event === 'message'); // Filter for chat messages only
+        return text.trim().split('\n').map(line => {
+            try { return JSON.parse(line); } catch (e) { return null; }
+        }).filter((msg: any) => msg && msg.event === 'message');
     } catch (e: any) {
         if (e.name === 'AbortError') throw e;
-        // Return empty array instead of fake data on error
         return [];
     }
 };
@@ -447,9 +186,7 @@ export const sendNtfyMessage = async (topicId: string, message: string) => {
         await fetch(`${CHAT_BASE_URL}/chat-${topicId}`, {
             method: 'POST',
             body: message,
-            headers: {
-                'Priority': 'low'
-            }
+            headers: { 'Priority': 'low' }
         });
     } catch (e) {
         console.error("Send chat error", e);
@@ -461,9 +198,7 @@ export const sendNtfyImage = async (topicId: string, file: File) => {
         await fetch(`${CHAT_BASE_URL}/chat-${topicId}`, {
             method: 'PUT',
             body: file,
-            headers: {
-                'Filename': file.name
-            }
+            headers: { 'Filename': file.name }
         });
     } catch (e) {
         console.error("Send image error", e);

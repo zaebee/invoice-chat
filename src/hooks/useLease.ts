@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LeaseData, INITIAL_LEASE } from '../types';
 import QRCode from 'qrcode';
-import { loadLeaseData } from '../services/ownimaApi';
+import { loadBookingData } from '../services/ownimaApi';
 
 export const useLease = () => {
   const [data, setData] = useState<LeaseData>(() => {
@@ -76,7 +76,7 @@ export const useLease = () => {
       setIsLoading(true);
       try {
           // Use centralized loader to get full object including QR and merged defaults
-          const fullLeaseData = await loadLeaseData(data.reservationId);
+          const fullLeaseData = await loadBookingData(data.reservationId);
           setData(fullLeaseData);
       } finally {
           setIsLoading(false);
