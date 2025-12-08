@@ -1,5 +1,3 @@
-
-
 import React, { useRef, useEffect } from 'react';
 import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus } from '../../types';
