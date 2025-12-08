@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
-import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Globe, Share2, MessageCircle, CalendarDays } from 'lucide-react';
+import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Share2, MessageCircle, CalendarDays } from 'lucide-react';
 import { Link, useParams, useLocation } from 'react-router-dom';
 
 import InvoicePreview from '../components/InvoicePreview';
