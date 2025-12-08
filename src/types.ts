@@ -163,6 +163,7 @@ export interface ChatSession {
     vehicleImageUrl?: string; // Cached image
     status: LeaseStatus;
     price: number;
+    currency?: string; // Added currency persistence
     deadline?: number; // Cached deadline
     pickupDate?: string;
     dropoffDate?: string;

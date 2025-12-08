@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../stores/chatStore';
-import { Language, ChatSession } from '../types';
+import { Language, ChatSession, LeaseStatus } from '../types';
 import { t } from '../utils/i18n';
-import { Car, AlertTriangle, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { Car, AlertTriangle, ChevronLeft, ChevronRight, CalendarDays, MapPin } from 'lucide-react';
 import { STATUS_CONFIG } from '../components/chat/ChatUtils';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,8 +13,8 @@ interface SchedulePageProps {
 
 // Layout Constants
 const DAY_WIDTH = 60; // Pixels per day
-const BAR_HEIGHT = 36; // Height of the booking bar
-const BAR_GAP = 6; // Vertical gap between stacked bars
+const BAR_HEIGHT = 40; // Height of the booking bar (increased for content)
+const BAR_GAP = 8; // Vertical gap between stacked bars
 const ROW_PADDING = 12; // Top/Bottom padding for the row
 const MIN_ROW_HEIGHT = 80; // Minimum height for a vehicle row
 
@@ -38,9 +39,50 @@ interface VehicleGroup {
     rowHeight: number;
 }
 
+const CurrentTimeIndicator = ({ startOffset, dayWidth }: { startOffset: number; dayWidth: number }) => {
+    const [nowOffset, setNowOffset] = useState(0);
+
+    useEffect(() => {
+        const calculatePos = () => {
+            const now = new Date();
+            const start = new Date(now);
+            // Must match timelineStart logic in parent
+            // Since we can't access parent state directly easily without props, 
+            // we calculate offset directly if start timestamp is passed, 
+            // or we assume the offset calculation is consistent.
+            // Simplified: The parent passes the timelineStart timestamp.
+            
+            // Re-implementing logic:
+            // The timelineStart is (Today - START_OFFSET) at 00:00
+            // We need to find how many milliseconds have passed since timelineStart
+            
+            const diff = now.getTime() - startOffset;
+            const daysPassed = diff / (1000 * 60 * 60 * 24);
+            setNowOffset(daysPassed * dayWidth);
+        };
+
+        calculatePos();
+        const timer = setInterval(calculatePos, 60000); // Update every minute
+        return () => clearInterval(timer);
+    }, [startOffset, dayWidth]);
+
+    if (nowOffset < 0) return null;
+
+    return (
+        <div 
+            className="absolute top-0 bottom-0 w-px bg-red-500 z-30 pointer-events-none"
+            style={{ left: nowOffset }}
+        >
+            <div className="w-2 h-2 bg-red-500 rounded-full -ml-1 mt-10 shadow-sm" />
+        </div>
+    );
+};
+
 const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     const { sessions, isHydrated, hydrate } = useChatStore();
     const navigate = useNavigate();
+    const [hoveredSession, setHoveredSession] = useState<string | null>(null);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     
     // Timeline Settings
     const DAYS_TO_SHOW = 21; // Total days visible
@@ -188,6 +230,11 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
         return d.toDateString() === new Date().toDateString();
     };
 
+    const isWeekend = (d: Date) => {
+        const day = d.getDay();
+        return day === 0 || day === 6; // Sun or Sat
+    };
+
     return (
         <div className="flex flex-col h-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-200">
             {/* Toolbar */}
@@ -232,11 +279,13 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                         </div>
                         
                         {/* Date Columns */}
-                        <div className="flex">
+                        <div className="flex relative">
                             {days.map((d, i) => (
                                 <div 
                                     key={i} 
-                                    className={`shrink-0 border-r border-slate-100 dark:border-slate-800 p-2 text-center flex flex-col items-center justify-center transition-colors ${isToday(d) ? 'bg-blue-50/60 dark:bg-blue-900/20' : 'bg-white dark:bg-slate-900'}`}
+                                    className={`shrink-0 border-r border-slate-100 dark:border-slate-800 p-2 text-center flex flex-col items-center justify-center transition-colors 
+                                        ${isToday(d) ? 'bg-blue-50/60 dark:bg-blue-900/20' : (isWeekend(d) ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900')}
+                                    `}
                                     style={{ width: DAY_WIDTH }}
                                 >
                                     <span className={`text-[10px] font-bold uppercase mb-0.5 ${isToday(d) ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>
@@ -247,6 +296,9 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                     </div>
                                 </div>
                             ))}
+                            
+                            {/* Today Line inside header to align with columns (visual guide) */}
+                            <CurrentTimeIndicator startOffset={timelineStart.getTime()} dayWidth={DAY_WIDTH} />
                         </div>
                     </div>
 
@@ -270,7 +322,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                 <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">{group.plate}</span>
                                                 {group.laneCount > 1 && (
                                                     <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded font-medium border border-orange-100 dark:border-orange-900/30">
-                                                        <AlertTriangle size={10} /> {group.laneCount} overlaps
+                                                        <AlertTriangle size={10} /> {group.laneCount}
                                                     </span>
                                                 )}
                                             </div>
@@ -284,16 +336,21 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                     {days.map((d, i) => (
                                         <div 
                                             key={i} 
-                                            className={`shrink-0 border-r border-slate-100/80 dark:border-slate-800/50 h-full ${isToday(d) ? 'bg-blue-50/20 dark:bg-blue-900/10' : ''}`}
+                                            className={`shrink-0 border-r border-slate-100/80 dark:border-slate-800/50 h-full 
+                                                ${isToday(d) ? 'bg-blue-50/20 dark:bg-blue-900/10' : (isWeekend(d) ? 'bg-slate-50/30 dark:bg-slate-800/20' : '')}
+                                            `}
                                             style={{ width: DAY_WIDTH }}
                                         />
                                     ))}
+                                    
+                                    {/* Red Line extending through rows */}
+                                    <CurrentTimeIndicator startOffset={timelineStart.getTime()} dayWidth={DAY_WIDTH} />
 
                                     {/* Bookings Layer */}
                                     {group.bookings.map(session => {
                                         const { left, width, lane } = session.layout;
                                         
-                                        // Visibility Optimization: Skip if totally out of view (simplified)
+                                        // Visibility Optimization
                                         if (left + width < 0) return null;
 
                                         const status = session.reservationSummary?.status || 'pending';
@@ -301,12 +358,22 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                         
                                         // Calculate Top Position based on Lane
                                         const top = ROW_PADDING + (lane * (BAR_HEIGHT + BAR_GAP));
+                                        
+                                        // Extract Price & Currency
+                                        const price = session.reservationSummary?.price || 0;
+                                        const currency = session.reservationSummary?.currency || 'THB';
 
                                         return (
                                             <div
                                                 key={session.id}
                                                 onClick={() => navigate(`/chat/detail/${session.id}`)}
-                                                className={`absolute rounded-lg border shadow-sm cursor-pointer hover:brightness-95 hover:scale-[1.01] hover:shadow-md hover:z-20 transition-all flex items-center px-2 gap-1.5 overflow-hidden whitespace-nowrap ${config.bg} ${config.border} ${config.text}`}
+                                                onMouseEnter={(e) => {
+                                                    setHoveredSession(session.id);
+                                                    setTooltipPos({ x: e.clientX, y: e.clientY });
+                                                }}
+                                                onMouseLeave={() => setHoveredSession(null)}
+                                                className={`absolute rounded-xl border shadow-sm cursor-pointer hover:scale-[1.01] hover:shadow-lg hover:z-20 transition-all flex items-center px-2.5 gap-2 overflow-hidden whitespace-nowrap 
+                                                    ${config.bg} ${config.border} dark:brightness-110`}
                                                 style={{ 
                                                     left: Math.max(0, left), 
                                                     width: Math.max(width - 4, 30), // Minimum visual width
@@ -314,13 +381,68 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                     top,
                                                     zIndex: 10 + lane 
                                                 }}
-                                                title={`${session.user.name} • ${status} • ${new Date(session.tempStart).toLocaleDateString()} - ${new Date(session.tempEnd).toLocaleDateString()}`}
                                             >
-                                                <div className="shrink-0 opacity-80">{config.icon}</div>
-                                                <div className="flex flex-col justify-center min-w-0">
-                                                    <span className="text-[10px] font-bold truncate leading-none mb-0.5">{session.user.name}</span>
-                                                    <span className="text-[9px] opacity-75 truncate leading-none font-medium uppercase tracking-wide">{t(config.labelKey, lang)}</span>
+                                                {/* Left Color Accent */}
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${config.accent}`}></div>
+
+                                                {/* Avatar */}
+                                                <div className="w-6 h-6 rounded-full bg-white/50 border border-black/5 flex items-center justify-center overflow-hidden shrink-0">
+                                                    {session.user.avatar ? (
+                                                        <img src={session.user.avatar} className="w-full h-full object-cover" alt="" />
+                                                    ) : (
+                                                        <span className={`text-[9px] font-bold ${config.text}`}>{session.user.name[0]}</span>
+                                                    )}
                                                 </div>
+
+                                                {/* Text Content */}
+                                                <div className="flex flex-col justify-center min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={`text-[11px] font-bold truncate leading-none ${config.text}`}>{session.user.name}</span>
+                                                        {/* Price Tag */}
+                                                        {price > 0 && (
+                                                            <span className="text-[9px] font-mono font-bold bg-white/60 dark:bg-black/20 px-1.5 rounded-md border border-black/5 leading-none py-0.5">
+                                                                {price.toLocaleString()} {currency}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Tooltip Popup */}
+                                                {hoveredSession === session.id && (
+                                                    <div 
+                                                        className="fixed z-50 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 w-64 animate-in fade-in zoom-in-95 duration-150 pointer-events-none"
+                                                        style={{ left: Math.min(tooltipPos.x + 20, window.innerWidth - 280), top: tooltipPos.y + 20 }}
+                                                    >
+                                                        <div className="flex items-center gap-3 mb-3">
+                                                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600">
+                                                                {session.user.avatar ? <img src={session.user.avatar} className="w-full h-full object-cover" alt="" /> : <span className="text-sm font-bold">{session.user.name[0]}</span>}
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-sm text-slate-800 dark:text-white">{session.user.name}</h4>
+                                                                <div className={`text-[10px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${config.bg} ${config.text} ${config.border}`}>
+                                                                    {config.icon} <span className="uppercase">{t(config.labelKey, lang)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="space-y-2 text-xs">
+                                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                                                <CalendarDays size={14} />
+                                                                <span>
+                                                                    {new Date(session.tempStart).toLocaleDateString()} <span className="text-slate-300">→</span> {new Date(session.tempEnd).toLocaleDateString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                                                <MapPin size={14} />
+                                                                <span className="truncate">{group.plate}</span>
+                                                            </div>
+                                                            <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                                                <span className="text-slate-500 dark:text-slate-400 font-medium">Total Price</span>
+                                                                <span className="text-sm font-bold text-slate-800 dark:text-white">{price.toLocaleString()} {currency}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
