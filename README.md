@@ -1,3 +1,4 @@
+
 # Ownima Pro 📄
 
 **Ownima Pro** is a professional rental management workspace built with React and TypeScript. It seamlessly integrates Lease Agreement generation, Invoice creation, real-time Chat, and a visual **Schedule Timeline** for Owners and Renters.
@@ -19,6 +20,8 @@ Built for **Ownima**, it provides a unified platform to manage vehicle reservati
 *   **AI Intelligence (Phase 8)**:
     *   **Smart Import**: Paste unstructured text (emails, messages) and let **Google Gemini 2.5** parse it into structured forms.
     *   **Intent Analysis**: The AI analyzes chat context to suggest the next workflow action (e.g., "Renter says they arrived" -> Suggest "Collect").
+*   **Global Support**:
+    *   **Multi-language**: Fully translated into English, Russian, Thai, Vietnamese, and Indonesian.
 *   **Offline-Ready (PWA)**:
     *   **Service Worker**: Caches app shell for instant loading and offline access.
     *   **IndexedDB**: Persists chat history and session data locally.

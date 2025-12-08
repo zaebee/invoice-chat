@@ -3,7 +3,7 @@
 
 ## 🧐 Current Status Review
 **Phases 1-7 Complete. Phase 8 (Intelligence) Active.**
-The application is a feature-complete **PWA Rental Workspace** with a robust "Freeze Pane" Gantt-chart schedule, full internationalization, and dark mode.
+The application is a feature-complete **PWA Rental Workspace** with a robust "Freeze Pane" Gantt-chart schedule, full internationalization (5 languages), and dark mode.
 
 **Core Strengths:**
 *   **Dual Engine:** Seamlessly handles structured Invoices and complex Lease Agreements.

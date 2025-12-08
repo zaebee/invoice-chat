@@ -1,3 +1,4 @@
+
 # 🏛️ Ownima Pro Architecture
 
 This document outlines the high-level architecture, data patterns, and complex logic implementation of Ownima Pro.
@@ -48,7 +49,7 @@ We use **Zustand** for state management and **IndexedDB** for offline persistenc
 graph TD
     API[API / Ntfy / SSE]
     DB[(IndexedDB)]
-    Store[Chat Store (Zustand)]
+    Store["Chat Store (Zustand)"]
     UI[React Components]
 
     API -->|Fetch & Subscribe| Store
