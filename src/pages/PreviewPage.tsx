@@ -3,10 +3,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PDFViewer, pdf } from '@react-pdf/renderer';
 import { Loader2, AlertCircle, Lock, Download } from 'lucide-react';
-import { fetchInvoiceHtml, fetchInvoicePdfBlob, loadLeaseData } from '../services/ownimaApi';
+import { fetchInvoiceHtml, fetchInvoicePdfBlob, loadBookingData } from '../services/ownimaApi';
 import { authService } from '../services/authService';
 import { LeasePdf } from '../components/LeasePdf';
-import LeasePreview from '../components/LeasePreview';
+import LeasePreview from '../domains/vehicle/components/LeasePreview';
 import { LoginModal } from '../components/modals/LoginModal';
 import { LeaseData } from '../types';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -76,9 +76,9 @@ export default function PreviewPage() {
       }
 
       // BRANCH: Normal CLIENT-SIDE logic
-      // Fetches API data, generates QR, and merges with defaults in one go
-      const fullLeaseData = await loadLeaseData(id);
-      setData(fullLeaseData);
+      // Fetches the new IBooking object and uses originalData for compatibility.
+      const booking = await loadBookingData(id);
+      setData(booking.originalData as LeaseData);
 
     } catch (err: any) {
       if (err.message === 'Unauthorized') {

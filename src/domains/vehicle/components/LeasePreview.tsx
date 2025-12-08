@@ -1,7 +1,7 @@
 import React from 'react';
-import { LeaseData, Language } from '../types';
-import { t } from '../utils/i18n';
-import { STATUS_CONFIG } from './chat/ChatUtils';
+import { LeaseData, Language } from '../../../types';
+import { t } from '../../../utils/i18n';
+import { STATUS_CONFIG } from '../../../components/chat/ChatUtils';
 
 interface LeasePreviewProps {
   data: LeaseData;

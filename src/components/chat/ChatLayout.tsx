@@ -1,123 +1,66 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LeaseData, Language, ChatSession, INITIAL_LEASE } from '../../types';
+import { Language, ChatSession } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useChatStore } from '../../stores/chatStore';
+import { useBookingStore } from '../../stores/bookingStore';
+import { useUiStore } from '../../stores/uiStore';
 import { ChatSidebar } from './ChatSidebar';
 import { ChatWindow } from './ChatWindow';
 import { RightPanel } from './RightPanel';
 import { t } from '../../utils/i18n';
 
 interface ChatLayoutProps {
-    leaseData: LeaseData;
     lang: Language;
-    leaseHandlers: any;
+    leaseHandlers: any; // Kept for legacy compatibility with forms
 }
 
-export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHandlers }) => {
+export const ChatLayout: React.FC<ChatLayoutProps> = ({ lang, leaseHandlers }) => {
     const isMobile = useIsMobile();
     const navigate = useNavigate();
     const { id: routeId } = useParams<{ id: string }>();
-    
-    // Initialize view based on route to prevent layout jump
-    const [mobileView, setMobileView] = useState<'list' | 'room'>(routeId ? 'room' : 'list');
-    
-    // Sidebar Collapse State
-    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('chat_sidebar_open');
-            return saved !== null ? JSON.parse(saved) : true;
-        }
-        return true;
-    });
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => JSON.parse(localStorage.getItem('chat_sidebar_open') || 'true'));
+
+    const { sessions, hydrate: hydrateChats, isHydrated } = useChatStore();
+    const { activeBooking, loadBooking } = useBookingStore();
+    const { activeBookingId, setActiveBookingId, isLoading } = useUiStore();
+
+    // --- MOBILE VIEW LOGIC ---
+    const mobileView = isMobile && activeBookingId ? 'room' : 'list';
+    // --- END ---
 
     useEffect(() => {
         localStorage.setItem('chat_sidebar_open', JSON.stringify(isSidebarOpen));
     }, [isSidebarOpen]);
 
-    const { 
-        sessions, 
-        activeSessionId, 
-        isLoading, 
-        setActiveSession,
-        leaseContext,
-        hydrate,
-        isHydrated
-    } = useChatStore();
-
     useEffect(() => {
-        if (!isHydrated) hydrate();
-        if (isHydrated) {
-            // Trigger resize to fix virtual list height on mobile after hydration
-            window.dispatchEvent(new Event('resize'));
-        }
-    }, [isHydrated, hydrate]);
+        if (!isHydrated) hydrateChats();
+    }, [isHydrated, hydrateChats]);
     
-    // Sync mobile view with route changes
     useEffect(() => {
         if (routeId) {
-            setMobileView('room');
+            setActiveBookingId(routeId);
+            loadBooking(routeId);
         } else {
-            setMobileView('list');
+            setActiveBookingId(null);
         }
-    }, [routeId]);
+    }, [routeId, setActiveBookingId, loadBooking]);
 
-    const currentActiveId = routeId || activeSessionId;
-    const activeChat = sessions.find((c: ChatSession) => c.id === currentActiveId);
-    
-    const resolveDisplayData = (): LeaseData => {
-        if (leaseContext && (leaseContext.id === currentActiveId || leaseContext.reservationId === currentActiveId)) {
-            return leaseContext;
-        }
-        if (leaseData.id === currentActiveId || leaseData.reservationId === currentActiveId) {
-            return leaseData;
-        }
-        if (activeChat && activeChat.reservationSummary) {
-            return {
-                ...INITIAL_LEASE,
-                id: activeChat.id,
-                reservationId: activeChat.id,
-                status: activeChat.reservationSummary.status,
-                vehicle: {
-                    ...INITIAL_LEASE.vehicle,
-                    name: activeChat.reservationSummary.vehicleName,
-                    plate: activeChat.reservationSummary.plateNumber,
-                },
-                pricing: {
-                    ...INITIAL_LEASE.pricing,
-                    total: activeChat.reservationSummary.price
-                },
-                pickup: { ...INITIAL_LEASE.pickup, date: '' }, 
-                dropoff: { ...INITIAL_LEASE.dropoff, date: '' },
-                deadline: activeChat.reservationSummary.deadline // Use cached deadline
-            };
-        }
-        return { ...INITIAL_LEASE, reservationId: 'Loading...' };
-    };
-
-    const currentLeaseData = resolveDisplayData();
+    const activeChat = useMemo(() => sessions.find((c: ChatSession) => c.id === activeBookingId), [sessions, activeBookingId]);
 
     const handleChatSelect = (chatId: string) => {
-        setActiveSession(chatId);
-        if (isMobile) {
-            setMobileView('room');
-            navigate(`/chat/detail/${chatId}`);
-        } else {
-            navigate(`/chat/detail/${chatId}`);
-        }
+        navigate(`/chat/detail/${chatId}`);
     };
 
     const handleBackToList = () => {
-        setMobileView('list');
         navigate('/');
     };
 
     return (
-        <div className="flex h-full bg-white dark:bg-slate-900 md:rounded-xl overflow-hidden md:border border-slate-200 dark:border-slate-800 md:shadow-sm relative transition-colors duration-200 w-full">
-            
-            {/* LEFT: Sidebar List */}
+        <div className="flex h-full bg-white dark:bg-slate-900 md:rounded-xl overflow-hidden md:border w-full">
+            {/* --- REFACTORED CONDITIONAL RENDERING FOR MOBILE --- */}
             <div className={`flex flex-col bg-slate-50 dark:bg-slate-900 relative shrink-0 h-full ${
                 isMobile 
                     ? (mobileView === 'list' ? 'w-full' : 'hidden') 
@@ -125,60 +68,39 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
             }`}>
                 <ChatSidebar 
                     sessions={sessions}
-                    activeId={currentActiveId}
+                    activeId={activeBookingId}
                     isLoading={isLoading || !isHydrated}
                     onSelect={handleChatSelect}
                     lang={lang}
                 />
             </div>
 
-            {/* MIDDLE: Chat Room */}
             <div className={`flex flex-col bg-slate-50/30 dark:bg-slate-950 relative shrink-0 h-full ${
                 isMobile
                     ? (mobileView === 'room' ? 'w-full' : 'hidden')
                     : 'flex-1 min-w-0'
             }`}>
-                {activeChat ? (
+                {activeChat && activeBooking ? (
                     <ChatWindow 
                         chat={activeChat}
-                        leaseData={currentLeaseData}
+                        booking={activeBooking}
                         lang={lang}
                         onBack={handleBackToList}
                         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                         isSidebarOpen={isSidebarOpen}
                     />
                 ) : (
-                    <div className="flex-1 h-full flex flex-col items-center justify-center gap-6 text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-950 w-full">
-                        {isLoading ? (
-                            <div className="flex flex-col items-center gap-3">
-                                <Loader2 className="animate-spin text-blue-500" size={48} />
-                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('loading_conversation', lang)}</p>
-                            </div>
-                        ) : (
-                            <div className="max-w-md w-full bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 text-center mx-4">
-                                <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-500 mx-auto mb-4 border border-blue-100 dark:border-blue-900/30 shadow-sm">
-                                    <MessageSquare size={32} />
-                                </div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{t('select_conversation', lang)}</h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
-                                    {t('select_conversation_desc', lang)}
-                                </p>
-                                <div className="flex gap-2 justify-center">
-                                    <div className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-                                    <div className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-                                    <div className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-                                </div>
-                            </div>
-                        )}
+                    <div className="flex-1 h-full flex items-center justify-center">
+                        {isMobile ? null : (isLoading || !isHydrated ? <Loader2 className="animate-spin text-blue-500" size={48} /> : <MessageSquare size={48} />)}
                     </div>
                 )}
             </div>
+            {/* --- END REFACTORED CONDITIONAL RENDERING --- */}
 
-            {/* RIGHT: Context Panel (Desktop Only) */}
-            {activeChat && !isMobile && (
+            {activeChat && activeBooking && !isMobile && (
                 <RightPanel 
                     chat={activeChat}
-                    leaseData={currentLeaseData}
+                    booking={activeBooking}
                     lang={lang}
                     handlers={leaseHandlers}
                     isOpen={isSidebarOpen}
