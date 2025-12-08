@@ -172,7 +172,7 @@ export default function EditorPage() {
     <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
         
         {/* UNIFIED APP HEADER */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30 shadow-sm">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-50 relative shadow-sm">
              {/* Left: Logo + AI + Nav (Desktop) */}
              <div className="flex items-center gap-4 md:gap-6">
                  <Link to="/"><BrandLogo className="text-slate-800 h-6" /></Link>
