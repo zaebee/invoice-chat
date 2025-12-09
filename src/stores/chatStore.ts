@@ -1,5 +1,4 @@
 
-
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
@@ -20,6 +19,10 @@ interface ChatState {
     currentLoadToken: number; // To prevent race conditions
     abortController: AbortController | null; // To cancel pending fetch requests
     
+    // Reconnection State
+    reconnectTimeoutId: number | null;
+    retryCount: number;
+
     // AI Suggestions
     aiSuggestion: { action: 'confirm' | 'reject' | 'collect' | 'complete'; reason: string } | null;
     
@@ -58,6 +61,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     currentLoadToken: 0,
     abortController: null,
     aiSuggestion: null,
+    
+    reconnectTimeoutId: null,
+    retryCount: 0,
 
     hydrate: async () => {
         if (get().isHydrated) return;
@@ -79,11 +85,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Manages the SINGLE global SSE connection for ALL chats
     connectGlobalListener: () => {
-        const { sessions, globalEventSource } = get();
+        const { sessions, globalEventSource, reconnectTimeoutId } = get();
         
-        // 1. Close existing
+        // 1. Cleanup existing connection and pending retries
         if (globalEventSource) {
             globalEventSource.close();
+        }
+        if (reconnectTimeoutId) {
+            clearTimeout(reconnectTimeoutId);
+            set({ reconnectTimeoutId: null });
         }
 
         // 2. Identify topics (exclude archived or old?)
@@ -101,9 +111,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         try {
             const sseUrl = getGlobalChatSseUrl(topicIds);
-            console.debug(`Connecting Global SSE for ${topicIds.length} topics`);
+            const currentRetry = get().retryCount;
+            console.debug(`Connecting Global SSE for ${topicIds.length} topics. Attempt ${currentRetry + 1}`);
             
             const eventSource = new EventSource(sseUrl);
+
+            eventSource.onopen = () => {
+                console.debug("Global SSE Connected");
+                // Reset retry count on successful connection
+                set({ retryCount: 0, globalEventSource: eventSource });
+            };
 
             eventSource.onmessage = (event) => {
                 try {
@@ -171,16 +188,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
             };
 
             eventSource.onerror = () => {
-                // If error, wait and reconnect (simple backoff handled by browser usually, but we can force refresh logic)
-                console.warn("Global SSE Error. Connection might be lost.");
-                // eventSource.close(); 
-                // Don't auto-close immediately, let browser retry connection logic or handle via visibility API
+                console.warn("Global SSE Connection Lost");
+                eventSource.close();
+                set({ globalEventSource: null });
+
+                // Exponential Backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+                const currentRetries = get().retryCount;
+                const nextRetryCount = currentRetries + 1;
+                const delay = Math.min(1000 * Math.pow(2, currentRetries), 30000);
+                
+                console.log(`Reconnecting in ${delay}ms...`);
+                
+                const timeoutId = window.setTimeout(() => {
+                    set({ reconnectTimeoutId: null });
+                    get().connectGlobalListener();
+                }, delay);
+
+                set({ 
+                    reconnectTimeoutId: timeoutId, 
+                    retryCount: nextRetryCount 
+                });
             };
 
+            // Set initially (will be updated on open/error)
             set({ globalEventSource: eventSource });
 
         } catch (e) {
             console.error("Failed to init Global SSE", e);
+            // Fallback retry
+            const timeoutId = window.setTimeout(() => {
+                set({ reconnectTimeoutId: null });
+                get().connectGlobalListener();
+            }, 5000);
+            set({ reconnectTimeoutId: timeoutId });
         }
     },
 
@@ -188,8 +228,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 const { globalEventSource } = get();
+                // If disconnected, force immediate reconnect (resetting backoff)
                 if (!globalEventSource || globalEventSource.readyState === EventSource.CLOSED) {
                     console.debug("App visible: Reconnecting Global Chat...");
+                    set({ retryCount: 0 }); // Reset retries to try immediately
                     get().connectGlobalListener();
                 }
             }
@@ -197,20 +239,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         window.addEventListener('online', () => {
              console.debug("Network online: Syncing...");
+             set({ retryCount: 0 }); // Reset retries
              get().connectGlobalListener();
         });
     },
 
     disconnect: () => {
-        const { globalEventSource, abortController } = get();
+        const { globalEventSource, abortController, reconnectTimeoutId } = get();
         if (globalEventSource) {
             console.debug("Disconnecting Global SSE...");
             globalEventSource.close();
         }
+        if (reconnectTimeoutId) {
+            clearTimeout(reconnectTimeoutId);
+        }
         if (abortController) {
             abortController.abort();
         }
-        set({ globalEventSource: null, abortController: null, aiSuggestion: null });
+        set({ 
+            globalEventSource: null, 
+            abortController: null, 
+            aiSuggestion: null,
+            reconnectTimeoutId: null,
+            retryCount: 0
+        });
     },
 
     createLocalSession: async (customId: string) => {
