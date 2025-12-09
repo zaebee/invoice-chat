@@ -448,15 +448,15 @@ interface SendNtfyOptions {
 export const sendNtfyMessage = async (topicId: string, message: string, options?: SendNtfyOptions) => {
     try {
         // Use JSON payload for rich messages (tags, actions)
+        // Sending to specific topic URL: /chat-<uuid>
         const payload = {
-            topic: `chat-${topicId}`,
             message: message,
             tags: options?.tags,
             priority: options?.priority,
             actions: options?.actions
         };
 
-        await fetch(`${CHAT_BASE_URL}`, {
+        await fetch(`${CHAT_BASE_URL}/chat-${topicId}`, {
             method: 'POST',
             body: JSON.stringify(payload),
             headers: {
