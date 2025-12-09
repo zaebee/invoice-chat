@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
-    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, PartyPopper, ThumbsUp, ExternalLink, Tag
+    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, PartyPopper, ThumbsUp
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE, NtfyAction } from '../../types';
