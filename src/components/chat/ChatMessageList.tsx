@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote } from 'lucide-react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote, Radio } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -56,6 +56,11 @@ const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action,
             return;
         }
 
+        if (action.action === 'broadcast') {
+            alert("Broadcast actions are only supported in the native mobile app.");
+            return;
+        }
+
         if (action.action === 'http' && action.url) {
             setStatus('loading');
             try {
@@ -74,10 +79,9 @@ const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action,
                 
                 if (res.ok) {
                     setStatus('success');
-                    // Reset to idle after 2s so it can be clicked again if needed, 
-                    // or keep as success if it's a one-time thing (logic depends on use case, resetting is safer for now)
                     setTimeout(() => setStatus('idle'), 3000);
                 } else {
+                    console.error("HTTP Action Error", res.status, res.statusText);
                     setStatus('error');
                     setTimeout(() => setStatus('idle'), 3000);
                 }
@@ -98,18 +102,22 @@ const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action,
         status === 'success' ? '!bg-green-500 !text-white !border-green-600' :
         status === 'error' ? '!bg-red-500 !text-white !border-red-600' :
         '';
+        
+    const disabled = status === 'loading';
 
     return (
         <button 
             onClick={handleClick}
-            disabled={status === 'loading'}
-            className={`${baseClasses} ${themeClasses} ${stateClasses}`}
+            disabled={disabled}
+            className={`${baseClasses} ${themeClasses} ${stateClasses} ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+            title={action.action === 'broadcast' ? 'Mobile App Only' : action.url}
         >
             {status === 'loading' && <Loader2 size={10} className="animate-spin" />}
             {status === 'success' && <Check size={10} />}
             {status === 'error' && <AlertCircle size={10} />}
             {status === 'idle' && action.action === 'view' && <ExternalLink size={10} />}
             {status === 'idle' && action.action === 'http' && <MousePointerClick size={10} />}
+            {status === 'idle' && action.action === 'broadcast' && <Radio size={10} />}
             <span>{action.label}</span>
         </button>
     );
