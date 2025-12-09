@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag } from 'lucide-react';
-import { ChatMessage, ChatUser, Language, LeaseStatus } from '../../types';
+import React, { useRef, useEffect, useState } from 'react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2 } from 'lucide-react';
+import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
 
@@ -21,6 +21,76 @@ interface ChatMessageListProps {
         timeLeft: string;
     };
 }
+
+const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action, isMe }) => {
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+    const handleClick = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        
+        if (action.action === 'view' && action.url) {
+            window.open(action.url, '_blank');
+            return;
+        }
+
+        if (action.action === 'http' && action.url) {
+            setStatus('loading');
+            try {
+                // Determine headers
+                const headers: Record<string, string> = { ...action.headers };
+                // If body is JSON, ensure content-type
+                if (action.body && typeof action.body === 'string' && (action.body.startsWith('{') || action.body.startsWith('['))) {
+                     headers['Content-Type'] = 'application/json';
+                }
+
+                const res = await fetch(action.url, {
+                    method: action.method || 'POST',
+                    headers: headers,
+                    body: action.body
+                });
+                
+                if (res.ok) {
+                    setStatus('success');
+                    // Reset to idle after 2s so it can be clicked again if needed, 
+                    // or keep as success if it's a one-time thing (logic depends on use case, resetting is safer for now)
+                    setTimeout(() => setStatus('idle'), 3000);
+                } else {
+                    setStatus('error');
+                    setTimeout(() => setStatus('idle'), 3000);
+                }
+            } catch (error) {
+                console.error("Action failed", error);
+                setStatus('error');
+                setTimeout(() => setStatus('idle'), 3000);
+            }
+        }
+    };
+
+    const baseClasses = `text-[10px] font-bold px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 flex items-center gap-1.5`;
+    const themeClasses = isMe
+        ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
+        : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600';
+
+    const stateClasses = 
+        status === 'success' ? '!bg-green-500 !text-white !border-green-600' :
+        status === 'error' ? '!bg-red-500 !text-white !border-red-600' :
+        '';
+
+    return (
+        <button 
+            onClick={handleClick}
+            disabled={status === 'loading'}
+            className={`${baseClasses} ${themeClasses} ${stateClasses}`}
+        >
+            {status === 'loading' && <Loader2 size={10} className="animate-spin" />}
+            {status === 'success' && <Check size={10} />}
+            {status === 'error' && <AlertCircle size={10} />}
+            {status === 'idle' && action.action === 'view' && <ExternalLink size={10} />}
+            {status === 'idle' && action.action === 'http' && <MousePointerClick size={10} />}
+            <span>{action.label}</span>
+        </button>
+    );
+};
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     messages,
@@ -279,24 +349,15 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                             </a>
                                         )}
 
-                                        {/* NTFY ACTIONS (Buttons) */}
+                                        {/* NTFY ACTIONS (Interactive Buttons) */}
                                         {msg.actions && msg.actions.length > 0 && (
                                             <div className="flex flex-wrap gap-2 mt-1.5">
                                                 {msg.actions.map((action, i) => (
-                                                    <a
-                                                        key={i}
-                                                        href={action.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95
-                                                            ${msg.senderId === 'me'
-                                                                ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
-                                                                : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
-                                                            }
-                                                        `}
-                                                    >
-                                                        {action.label}
-                                                    </a>
+                                                    <ActionButton 
+                                                        key={i} 
+                                                        action={action} 
+                                                        isMe={msg.senderId === 'me'} 
+                                                    />
                                                 ))}
                                             </div>
                                         )}
