@@ -1,9 +1,7 @@
 
-
-
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE } from '../types';
-import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
+import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
 import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
 import { analyzeChatIntent } from '../services/geminiService';
@@ -17,7 +15,7 @@ interface ChatState {
     isLoading: boolean;
     error: string | null;
     leaseContext: LeaseData | null; // Store the lease data associated with current chat
-    activeEventSource: EventSource | null; // Track active SSE connection
+    globalEventSource: EventSource | null; // SINGLE Global SSE connection
     currentLoadToken: number; // To prevent race conditions
     abortController: AbortController | null; // To cancel pending fetch requests
     
@@ -26,8 +24,9 @@ interface ChatState {
     
     // Actions
     hydrate: () => Promise<void>;
+    connectGlobalListener: () => void; // New Action
+    createLocalSession: (customId: string) => Promise<void>;
     loadChatSession: (reservationId: string) => Promise<void>;
-    createLocalSession: (customId: string) => Promise<void>; // New Action
     analyzeIntent: () => Promise<void>;
     setActiveSession: (id: string) => void;
     sendMessage: (text: string) => Promise<void>;
@@ -54,7 +53,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     isLoading: false,
     error: null,
     leaseContext: null,
-    activeEventSource: null,
+    globalEventSource: null,
     currentLoadToken: 0,
     abortController: null,
     aiSuggestion: null,
@@ -68,59 +67,158 @@ export const useChatStore = create<ChatState>((set, get) => ({
         try {
             const storedSessions = await dbService.getAllSessions();
             set({ sessions: storedSessions, isHydrated: true });
+            
+            // Connect global listener after loading stored sessions
+            get().connectGlobalListener();
         } catch (e) {
             console.error("Hydration failed", e);
-            set({ isHydrated: true }); // Mark as hydrated anyway so we don't block
+            set({ isHydrated: true });
+        }
+    },
+
+    // Manages the SINGLE global SSE connection for ALL chats
+    connectGlobalListener: () => {
+        const { sessions, globalEventSource } = get();
+        
+        // 1. Close existing
+        if (globalEventSource) {
+            globalEventSource.close();
+        }
+
+        // 2. Identify topics (exclude archived or old?)
+        // For now, subscribe to all local sessions to ensure updates
+        if (sessions.length === 0) return;
+
+        // Limit to 40 most recent to prevent URL overflow, though Ntfy handles long URLs reasonably well
+        const recentSessions = [...sessions]
+            .sort((a, b) => b.lastMessageTime - a.lastMessageTime)
+            .slice(0, 40);
+            
+        const topicIds = recentSessions.map(s => s.id);
+        
+        if (topicIds.length === 0) return;
+
+        try {
+            const sseUrl = getGlobalChatSseUrl(topicIds);
+            console.debug(`Connecting Global SSE for ${topicIds.length} topics`);
+            
+            const eventSource = new EventSource(sseUrl);
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const ntfyMsg = JSON.parse(event.data);
+                    if (ntfyMsg.event !== 'message') return;
+
+                    // Ntfy returns the topic name (e.g. 'chat-123')
+                    // We need to strip 'chat-' to get our session ID
+                    const rawTopic = ntfyMsg.topic;
+                    const sessionId = rawTopic.replace(/^chat-/, '');
+
+                    // Determine if this is the active session
+                    const isActive = get().activeSessionId === sessionId;
+                    
+                    // Mark as 'sent' (unread) by default, unless active (UI might mark read via Observer)
+                    const status = 'sent';
+
+                    const chatMsg = ntfyToChatMessage(ntfyMsg, status);
+
+                    set(state => {
+                        const sessionIndex = state.sessions.findIndex(s => s.id === sessionId);
+                        
+                        // If we received a message for a session we don't have locally, 
+                        // we technically should fetch it, but for now ignore or create placeholder
+                        if (sessionIndex === -1) return {};
+
+                        const session = state.sessions[sessionIndex];
+                        // Deduplicate
+                        if (session.messages.some(m => m.id === chatMsg.id)) return {};
+
+                        const updatedMessages = [...session.messages, chatMsg];
+                        
+                        const isIncoming = chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system';
+                        
+                        // Increment unread count only if incoming message
+                        // If user is active on this chat, the IntersectionObserver in UI will mark it read instantly
+                        // But for store state, we increment first.
+                        const newUnreadCount = isIncoming ? (session.unreadCount || 0) + 1 : (session.unreadCount || 0);
+
+                        const updatedSession = {
+                            ...session,
+                            messages: updatedMessages,
+                            lastMessage: chatMsg.type === 'image' ? 'Image Attachment' : chatMsg.text,
+                            lastMessageTime: chatMsg.timestamp,
+                            unreadCount: newUnreadCount
+                        };
+                        
+                        const newSessions = [...state.sessions];
+                        newSessions[sessionIndex] = updatedSession;
+                        
+                        dbService.saveSession(updatedSession);
+                        
+                        // If this was the active session, trigger AI check
+                        if (isActive && isIncoming) {
+                            // Defer AI analysis slightly
+                            setTimeout(() => get().analyzeIntent(), 500);
+                        }
+                        
+                        return { sessions: newSessions };
+                    });
+
+                } catch (e) {
+                    console.error("Global SSE Parse Error", e);
+                }
+            };
+
+            eventSource.onerror = () => {
+                // If error, wait and reconnect (simple backoff handled by browser usually, but we can force refresh logic)
+                console.warn("Global SSE Error. Connection might be lost.");
+                // eventSource.close(); 
+                // Don't auto-close immediately, let browser retry connection logic or handle via visibility API
+            };
+
+            set({ globalEventSource: eventSource });
+
+        } catch (e) {
+            console.error("Failed to init Global SSE", e);
         }
     },
 
     setupBackgroundSync: () => {
-        // Handle Tab Visibility Changes
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                const { activeSessionId, activeEventSource } = get();
-                
-                // If we have an active session but connection is closed/missing, reconnect
-                if (activeSessionId && (!activeEventSource || activeEventSource.readyState === EventSource.CLOSED)) {
-                    console.debug("App visible: Reconnecting chat...");
-                    get().loadChatSession(activeSessionId);
+                const { globalEventSource } = get();
+                if (!globalEventSource || globalEventSource.readyState === EventSource.CLOSED) {
+                    console.debug("App visible: Reconnecting Global Chat...");
+                    get().connectGlobalListener();
                 }
             }
         });
 
-        // Handle Online Status
         window.addEventListener('online', () => {
-             const { activeSessionId } = get();
-             if (activeSessionId) {
-                 console.debug("Network online: Syncing chat...");
-                 get().loadChatSession(activeSessionId);
-             }
+             console.debug("Network online: Syncing...");
+             get().connectGlobalListener();
         });
     },
 
     disconnect: () => {
-        const { activeEventSource, abortController } = get();
-        if (activeEventSource) {
-            console.debug("Disconnecting active chat session...");
-            activeEventSource.close();
+        const { globalEventSource, abortController } = get();
+        if (globalEventSource) {
+            console.debug("Disconnecting Global SSE...");
+            globalEventSource.close();
         }
         if (abortController) {
             abortController.abort();
         }
-        set({ activeEventSource: null, abortController: null, aiSuggestion: null });
+        set({ globalEventSource: null, abortController: null, aiSuggestion: null });
     },
 
     createLocalSession: async (customId: string) => {
         const { sessions } = get();
-        
-        // Check if exists
-        const existing = sessions.find(s => s.id === customId);
-        if (existing) {
+        if (sessions.find(s => s.id === customId)) {
             set({ activeSessionId: customId, error: null });
             return;
         }
 
-        // Initialize empty lease for local draft
         const today = new Date().toISOString().split('T')[0];
         const newLease: LeaseData = {
             ...INITIAL_LEASE,
@@ -155,7 +253,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
         };
 
-        // Persist and Update State
         await dbService.saveSession(newSession);
         
         set(state => ({
@@ -165,79 +262,56 @@ export const useChatStore = create<ChatState>((set, get) => ({
             error: null,
             isLoading: false
         }));
+
+        // Reconnect global listener to include new session
+        get().connectGlobalListener();
     },
 
     loadChatSession: async (reservationId: string) => {
-        // Ensure store is hydrated first to check for existing data
-        if (!get().isHydrated) {
-            await get().hydrate();
-        }
+        if (!get().isHydrated) await get().hydrate();
 
-        // Close existing connection & abort pending requests immediately
-        const { activeEventSource, abortController, sessions } = get();
-        if (activeEventSource) {
-            activeEventSource.close();
-        }
-        if (abortController) {
-            abortController.abort();
-        }
+        const { abortController, sessions } = get();
+        if (abortController) abortController.abort();
         
-        // Create new AbortController
         const controller = new AbortController();
         const signal = controller.signal;
-
-        // Generate a new token for this load request
         const myToken = Math.random();
+
         set({ 
-            activeEventSource: null, 
             abortController: controller,
             currentLoadToken: myToken,
-            // Optimistic active set
             activeSessionId: reservationId, 
             isLoading: !sessions.find(s => s.id === reservationId), 
             error: null,
-            aiSuggestion: null // Reset suggestion on new chat load
+            aiSuggestion: null 
         });
 
         try {
-            // 1. Fetch Lease Data to get Renter/Owner context
-            const leaseData = await loadLeaseData(reservationId, signal);
+            // 1. Fetch Static Data (Lease + History + Log)
+            // We do NOT open a specific SSE here anymore. The Global Listener handles updates.
             
-            // CHECK: Did another load start while we were fetching?
+            const leaseData = await loadLeaseData(reservationId, signal);
             if (get().currentLoadToken !== myToken) return;
-
             set({ leaseContext: leaseData });
 
-            // 2. Fetch History (System Messages)
             const historyEvents = await fetchReservationHistory(leaseData.id || reservationId, signal);
-            
-            // CHECK
             if (get().currentLoadToken !== myToken) return;
 
-            // 3. Fetch Ntfy Messages (User Chat)
-            // Use the real UUID (leaseData.id) for the chat topic if available, otherwise input
             const topicId = leaseData.id || reservationId;
             const ntfyData = await fetchNtfyMessages(topicId, signal);
-
-            // CHECK
             if (get().currentLoadToken !== myToken) return;
 
-            // Create a map of existing messages to preserve status (read/sent)
             const existingSession = sessions.find(s => s.id === reservationId);
-            // Fix: Fallback to empty array to ensure correct Map type inference
             const localMsgMap = new Map<string, ChatMessage>(
                 (existingSession?.messages || []).map(m => [m.id, m] as [string, ChatMessage])
             );
 
-            // 4. Merge & Sort
-            
-            // Create Synthetic Summary Message
             const createdTime = leaseData.createdDate ? new Date(leaseData.createdDate).getTime() : Date.now();
             const summaryMessage: ChatMessage = {
                 id: `sys_summary_${leaseData.reservationId}`,
                 senderId: 'system',
                 text: `Reservation Details\n📅 ${leaseData.pickup.date} -> ${leaseData.dropoff.date}\n💰 ${leaseData.pricing.total.toLocaleString()} ${leaseData.pricing.currency || 'THB'}`,
-                timestamp: createdTime - 1, // Ensure it appears before "Reservation created via Web" if timestamps match exactly
+                timestamp: createdTime - 1,
                 type: 'system',
                 status: 'read'
             };
@@ -247,22 +321,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ...historyEvents.map(h => historyToChatMessage(h)),
                 ...ntfyData.map((n: any) => {
                     const local = localMsgMap.get(n.id);
-                    // Use local status if available (preserve 'read' state)
-                    const status = local ? local.status : 'read';
+                    const status = local ? local.status : 'read'; // Assume fetched history is read unless locally pending
                     return ntfyToChatMessage(n, status);
                 })
             ];
             
             allMessages.sort((a, b) => a.timestamp - b.timestamp);
-
-            // Recalculate unread count (incoming 'other' messages with status 'sent')
             const unreadCount = allMessages.filter(m => m.senderId !== 'me' && m.senderId !== 'system' && m.status === 'sent').length;
 
-            // 5. Create/Update Session
             const newSession: ChatSession = {
-                id: topicId, // Use UUID as session ID
+                id: topicId,
                 user: {
-                    id: leaseData.renter.surname, // simplified ID
+                    id: leaseData.renter.surname,
                     name: leaseData.renter.surname || 'Renter',
                     contact: leaseData.renter.contact,
                     role: 'Renter',
@@ -273,15 +343,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 lastMessage: allMessages.length > 0 ? (allMessages[allMessages.length - 1].type === 'image' ? 'Image Attachment' : allMessages[allMessages.length - 1].text) : 'No messages',
                 lastMessageTime: allMessages.length > 0 ? allMessages[allMessages.length - 1].timestamp : 0,
                 unreadCount: unreadCount,
-                isArchived: existingSession?.isArchived || false, // Preserve archive status
-                // CACHE RESERVATION SUMMARY FOR LIST VIEW
+                isArchived: existingSession?.isArchived || false,
                 reservationSummary: {
                     vehicleName: leaseData.vehicle.name,
                     plateNumber: leaseData.vehicle.plate,
                     status: leaseData.status || 'pending',
                     price: leaseData.pricing.total,
-                    currency: leaseData.pricing.currency || 'THB', // PERSIST CURRENCY
-                    deadline: leaseData.deadline, // CACHE DEADLINE
+                    currency: leaseData.pricing.currency || 'THB',
+                    deadline: leaseData.deadline,
                     pickupDate: leaseData.pickup.date,
                     dropoffDate: leaseData.dropoff.date,
                     exactPickupDate: leaseData.exactPickupDate,
@@ -289,11 +358,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 }
             };
 
-            // 6. Update Store with Session & Persist
             set(state => {
-                // Double check token one last time before state update
                 if (state.currentLoadToken !== myToken) return {};
-
                 const existingIdx = state.sessions.findIndex(s => s.id === topicId);
                 let newSessions = [...state.sessions];
                 if (existingIdx >= 0) {
@@ -301,7 +367,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 } else {
                     newSessions.push(newSession);
                 }
-                
                 return {
                     sessions: newSessions,
                     activeSessionId: topicId,
@@ -309,10 +374,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 };
             });
             
-            // Async Save to DB
             await dbService.saveSession(newSession);
 
-            // 7. Initial AI Check (Only if unread messages exist or if last message is from other)
+            // If we just added a new session that wasn't in the global subscription list, update subscription
+            if (!existingSession) {
+                get().connectGlobalListener();
+            }
+
+            // Initial AI Check
             if (newSession.messages.length > 0) {
                 const lastMsg = newSession.messages[newSession.messages.length - 1];
                 if (lastMsg.senderId !== 'me' && lastMsg.senderId !== 'system') {
@@ -320,102 +389,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 }
             }
 
-            // 8. Establish SSE Connection for Live Updates
-            // Only connect if we have a valid topic and NOT in demo mode
-            if (get().currentLoadToken === myToken && leaseData.source !== 'OFFLINE_DEMO') {
-                try {
-                    const sseUrl = getChatSseUrl(topicId);
-                    const eventSource = new EventSource(sseUrl);
-                    
-                    eventSource.onmessage = (event) => {
-                        // Safety check inside callback
-                        if (get().currentLoadToken !== myToken) {
-                             eventSource.close();
-                             return;
-                        }
-
-                        try {
-                            const ntfyMsg = JSON.parse(event.data);
-                            if (ntfyMsg.event !== 'message') return;
-                            
-                            // Always mark incoming live messages as 'sent' (unread) initially.
-                            // The UI IntersectionObserver will mark them as 'read' when visible.
-                            const status = 'sent';
-
-                            const chatMsg = ntfyToChatMessage(ntfyMsg, status);
-                            
-                            set(state => {
-                                const sessionIndex = state.sessions.findIndex(s => s.id === topicId);
-                                if (sessionIndex === -1) return {};
-
-                                const session = state.sessions[sessionIndex];
-                                // Deduplicate based on ID
-                                if (session.messages.some(m => m.id === chatMsg.id)) return {};
-
-                                const updatedMessages = [...session.messages, chatMsg];
-                                
-                                const isIncoming = chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system';
-                                const newUnreadCount = isIncoming ? (session.unreadCount || 0) + 1 : (session.unreadCount || 0);
-
-                                const updatedSession = {
-                                    ...session,
-                                    messages: updatedMessages,
-                                    lastMessage: chatMsg.type === 'image' ? 'Image Attachment' : chatMsg.text,
-                                    lastMessageTime: chatMsg.timestamp,
-                                    unreadCount: newUnreadCount
-                                };
-                                
-                                const newSessions = [...state.sessions];
-                                newSessions[sessionIndex] = updatedSession;
-                                
-                                dbService.saveSession(updatedSession);
-                                
-                                return { sessions: newSessions };
-                            });
-
-                            // Trigger AI Analysis on new incoming message from 'other'
-                            if (chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system') {
-                                get().analyzeIntent();
-                            }
-
-                        } catch (e) {
-                            console.error("SSE Parse Error", e);
-                        }
-                    };
-                    
-                    eventSource.onerror = () => {
-                        // Downgrade to warning as this is expected in some environments (CORS/Offline)
-                        // Close connection to prevent retry loop spam in console
-                        eventSource.close();
-                        console.warn("Chat connection lost (offline or CORS). Live updates paused.");
-                    };
-
-                    set({ activeEventSource: eventSource });
-                } catch (e) {
-                    console.warn("Failed to init SSE", e);
-                }
-            }
-
         } catch (e: any) {
-            // Ignore abort errors
             if (e.name === 'AbortError') return;
-
             console.error("Load Chat Error", e);
-            // Only update error if this is still the active request
             if (get().currentLoadToken === myToken) {
-                // If we have a local session in store, don't show error, just stop loading
                 const localSession = get().sessions.find(s => s.id === reservationId);
-                
                 if (localSession) {
                     set({ 
                         isLoading: false, 
-                        // If we have local data but API failed, allow user to work offline
                         error: null,
                         leaseContext: {
                             ...INITIAL_LEASE,
                             reservationId,
                             status: localSession.reservationSummary?.status,
-                            // Hydrate context from local summary where possible
                             vehicle: {
                                 ...INITIAL_LEASE.vehicle,
                                 name: localSession.reservationSummary?.vehicleName || '',
@@ -424,11 +410,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         }
                     });
                 } else {
-                    // Genuine 404 or Error for a new ID
-                    set({ 
-                        isLoading: false, 
-                        error: e.message || "Failed to load chat"
-                    });
+                    set({ isLoading: false, error: e.message || "Failed to load chat" });
                 }
             }
         }
@@ -441,7 +423,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const session = sessions.find(s => s.id === activeSessionId);
         if (!session || session.messages.length === 0) return;
 
-        // Skip if last message is from me or system (don't analyze own messages)
         const lastMsg = session.messages[session.messages.length - 1];
         if (lastMsg.senderId === 'me' || lastMsg.senderId === 'system') {
             set({ aiSuggestion: null });
@@ -463,7 +444,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     setActiveSession: (id: string) => {
-        set({ activeSessionId: id, aiSuggestion: null }); // Clear suggestion when switching
+        set({ activeSessionId: id, aiSuggestion: null });
     },
 
     archiveSession: (sessionId: string) => {
@@ -471,7 +452,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const session = state.sessions.find(s => s.id === sessionId);
             if (!session) return {};
 
-            const updatedSession = { ...session, isArchived: !session.isArchived }; // Toggle behavior
+            const updatedSession = { ...session, isArchived: !session.isArchived }; 
             const newSessions = state.sessions.map(s => s.id === sessionId ? updatedSession : s);
 
             dbService.saveSession(updatedSession);
@@ -482,27 +463,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
     deleteSession: async (sessionId: string) => {
         set(state => {
             const newSessions = state.sessions.filter(s => s.id !== sessionId);
-            // If active, deselect
             const newActive = state.activeSessionId === sessionId ? null : state.activeSessionId;
-            
             dbService.deleteSession(sessionId);
             return { sessions: newSessions, activeSessionId: newActive };
         });
+        // Update subscription list
+        get().connectGlobalListener();
     },
 
     markAsRead: (sessionId: string) => {
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
             if (sessionIdx === -1) return {};
-            
             const session = state.sessions[sessionIdx];
-            // Mark all messages as read
             const newMessages = session.messages.map(m => ({ ...m, status: 'read' as const }));
-            
             const newSession = { ...session, messages: newMessages, unreadCount: 0 };
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
-            
             dbService.saveSession(newSession);
             return { sessions: newSessions };
         });
@@ -512,12 +489,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
             if (sessionIdx === -1) return {};
-            
             const session = state.sessions[sessionIdx];
-            const newSession = { ...session, unreadCount: 1 }; // Force unread state
+            const newSession = { ...session, unreadCount: 1 };
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
-            
             dbService.saveSession(newSession);
             return { sessions: newSessions };
         });
@@ -527,30 +502,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
             if (sessionIdx === -1) return {};
-
             const session = state.sessions[sessionIdx];
             const msgIdx = session.messages.findIndex(m => m.id === messageId);
-            
-            // If message not found or already read, do nothing
             if (msgIdx === -1 || session.messages[msgIdx].status === 'read') return {};
-
             const newMessages = [...session.messages];
             newMessages[msgIdx] = { ...newMessages[msgIdx], status: 'read' };
-
-            // Decrement unread count, ensure it doesn't go below 0
             const newUnreadCount = Math.max(0, session.unreadCount - 1);
-
-            const newSession = {
-                ...session,
-                messages: newMessages,
-                unreadCount: newUnreadCount
-            };
-
+            const newSession = { ...session, messages: newMessages, unreadCount: newUnreadCount };
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
-
             dbService.saveSession(newSession);
-
             return { sessions: newSessions };
         });
     },
@@ -559,7 +520,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const { activeSessionId, sessions } = get();
         if (!activeSessionId || !text.trim()) return;
 
-        // Optimistic UI Update
         const tempId = Math.random().toString();
         const now = Date.now();
         const newMsg: ChatMessage = {
@@ -572,7 +532,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
 
         let updatedSession: ChatSession | undefined;
-
         const updatedSessions = sessions.map(session => {
             if (session.id === activeSessionId) {
                 updatedSession = {
@@ -586,16 +545,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return session;
         });
 
-        set({ sessions: updatedSessions, aiSuggestion: null }); // Clear suggestion when user replies
-        
-        if (updatedSession) {
-            await dbService.saveSession(updatedSession);
-        }
+        set({ sessions: updatedSessions, aiSuggestion: null });
+        if (updatedSession) await dbService.saveSession(updatedSession);
 
-        // Send to API
         try {
             await sendNtfyMessage(activeSessionId, text);
-            // Re-fetching is handled by the live SSE stream
         } catch (e) {
             console.error("Failed to send message", e);
         }
@@ -605,7 +559,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const { activeSessionId, sessions } = get();
         if (!activeSessionId || !file) return;
 
-        // Optimistic UI Update using Object URL
         const tempId = Math.random().toString();
         const now = Date.now();
         const blobUrl = URL.createObjectURL(file);
@@ -621,7 +574,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
 
         let updatedSession: ChatSession | undefined;
-
         const updatedSessions = sessions.map(session => {
             if (session.id === activeSessionId) {
                 updatedSession = {
@@ -636,12 +588,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
 
         set({ sessions: updatedSessions, aiSuggestion: null });
-        
-        if (updatedSession) {
-            await dbService.saveSession(updatedSession);
-        }
+        if (updatedSession) await dbService.saveSession(updatedSession);
 
-        // Upload to API
         try {
             await sendNtfyImage(activeSessionId, file);
         } catch (e) {
@@ -657,56 +605,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
     confirmReservation: async () => {
         const { sendMessage, leaseContext } = get();
         if (!leaseContext) return;
-        
-        // 1. Optimistically update Status in local store
         set(state => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'confirmed' } : null,
             aiSuggestion: null
         }));
-
-        // 2. Send System Message via Ntfy
         await sendMessage("✅ Reservation confirmed by Owner");
     },
 
     rejectReservation: async () => {
          const { sendMessage, leaseContext } = get();
         if (!leaseContext) return;
-        
-        // 1. Optimistically update Status
         set(state => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'rejected' } : null,
             aiSuggestion: null
         }));
-
-        // 2. Send System Message
         await sendMessage("❌ Reservation rejected by Owner");
     },
 
     collectReservation: async () => {
         const { sendMessage, leaseContext } = get();
         if (!leaseContext) return;
-        
-        // 1. Optimistically update Status
         set(state => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'collected' } : null,
             aiSuggestion: null
         }));
-
-        // 2. Send System Message
         await sendMessage("🔑 Vehicle collected by Rider");
     },
 
     completeReservation: async () => {
         const { sendMessage, leaseContext } = get();
         if (!leaseContext) return;
-        
-        // 1. Optimistically update Status
         set(state => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'completed' } : null,
             aiSuggestion: null
         }));
-
-        // 2. Send System Message
         await sendMessage("🏁 Lease completed successfully");
     }
 }));

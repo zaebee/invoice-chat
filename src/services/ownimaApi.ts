@@ -1,6 +1,4 @@
 
-
-
 import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -468,6 +466,13 @@ export const sendNtfyImage = async (topicId: string, file: File) => {
     } catch (e) {
         console.error("Send image error", e);
     }
+};
+
+// Generates a multi-topic SSE URL for global listening
+export const getGlobalChatSseUrl = (topicIds: string[]) => {
+    // Prefix each ID with 'chat-'
+    const topics = topicIds.map(id => `chat-${id}`).join(',');
+    return `${CHAT_BASE_URL}/${topics}/sse`;
 };
 
 export const getChatSseUrl = (topicId: string) => `${CHAT_BASE_URL}/chat-${topicId}/sse`;
