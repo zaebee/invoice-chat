@@ -20,8 +20,8 @@ export const ntfyToChatMessage = (ntfy: NtfyMessage, initialStatus: 'read' | 'se
 
     let type: MessageType = 'text';
     let statusMetadata: LeaseStatus | undefined = undefined;
-    
-    // Status Metadata from Tags
+    let attachmentUrl: string | undefined = undefined;
+
     if (ntfy.tags?.includes('system')) {
         type = 'system';
         const statusTag = ntfy.tags?.find(t => t.startsWith('status:'));
@@ -30,14 +30,11 @@ export const ntfyToChatMessage = (ntfy: NtfyMessage, initialStatus: 'read' | 'se
         }
     }
 
-    // Attachment Handling
+    // Check for attachment
     if (ntfy.attachment) {
-        const mime = ntfy.attachment.type || '';
-        if (mime.startsWith('image/')) {
-            type = 'image';
-        } else {
-            type = 'file';
-        }
+        type = 'image';
+        // Use attachment URL directly. Usually absolute or relative to domain.
+        attachmentUrl = ntfy.attachment.url;
     }
     
     // Store as raw timestamp (ms)
@@ -50,11 +47,11 @@ export const ntfyToChatMessage = (ntfy: NtfyMessage, initialStatus: 'read' | 'se
         timestamp,
         type,
         status: initialStatus,
-        attachmentUrl: ntfy.attachment?.url,
-        attachment: ntfy.attachment,
+        attachmentUrl,
         priority: ntfy.priority,
         tags: ntfy.tags,
         clickUrl: ntfy.click,
+        actions: ntfy.actions,
         metadata: {
             status: statusMetadata
         }

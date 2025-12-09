@@ -279,6 +279,28 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                             </a>
                                         )}
 
+                                        {/* NTFY ACTIONS (Buttons) */}
+                                        {msg.actions && msg.actions.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-1.5">
+                                                {msg.actions.map((action, i) => (
+                                                    <a
+                                                        key={i}
+                                                        href={action.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95
+                                                            ${msg.senderId === 'me'
+                                                                ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
+                                                                : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                                                            }
+                                                        `}
+                                                    >
+                                                        {action.label}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+
                                     </div>
 
                                     {/* METADATA ROW: Time + Tags */}

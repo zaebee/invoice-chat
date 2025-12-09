@@ -109,6 +109,16 @@ export interface LeaseData {
 
 export type MessageType = 'text' | 'system' | 'image' | 'file';
 
+export interface NtfyAction {
+  action: 'view' | 'http' | 'broadcast';
+  label: string;
+  url?: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  clear?: boolean;
+}
+
 // Internal UI Message Format
 export interface ChatMessage {
   id: string;
@@ -127,6 +137,7 @@ export interface ChatMessage {
   };
   priority?: number; // 1=min, 3=default, 5=max
   tags?: string[];
+  actions?: NtfyAction[]; // Action buttons
   clickUrl?: string;
   metadata?: {
     status?: LeaseStatus;
@@ -144,6 +155,7 @@ export interface NtfyMessage {
   priority?: number;
   tags?: string[]; // Used for flags like 'read', 'system', 'status:collected'
   click?: string; // Action URL
+  actions?: NtfyAction[];
   attachment?: {
     name: string;
     url: string;

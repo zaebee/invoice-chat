@@ -1,4 +1,4 @@
-import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
+import { LeaseData, INITIAL_LEASE, LeaseStatus, NtfyAction } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
 
@@ -439,13 +439,28 @@ export const fetchNtfyMessages = async (topicId: string, signal?: AbortSignal) =
     }
 };
 
-export const sendNtfyMessage = async (topicId: string, message: string) => {
+interface SendNtfyOptions {
+    tags?: string[];
+    priority?: number;
+    actions?: NtfyAction[];
+}
+
+export const sendNtfyMessage = async (topicId: string, message: string, options?: SendNtfyOptions) => {
     try {
-        await fetch(`${CHAT_BASE_URL}/chat-${topicId}`, {
+        // Use JSON payload for rich messages (tags, actions)
+        const payload = {
+            topic: `chat-${topicId}`,
+            message: message,
+            tags: options?.tags,
+            priority: options?.priority,
+            actions: options?.actions
+        };
+
+        await fetch(`${CHAT_BASE_URL}`, {
             method: 'POST',
-            body: message,
+            body: JSON.stringify(payload),
             headers: {
-                'Priority': 'low'
+                'Content-Type': 'application/json'
             }
         });
     } catch (e) {

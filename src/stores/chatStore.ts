@@ -1,6 +1,7 @@
 
+
 import { create } from 'zustand';
-import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE } from '../types';
+import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
 import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
@@ -29,7 +30,7 @@ interface ChatState {
     loadChatSession: (reservationId: string) => Promise<void>;
     analyzeIntent: () => Promise<void>;
     setActiveSession: (id: string) => void;
-    sendMessage: (text: string) => Promise<void>;
+    sendMessage: (text: string, tags?: string[], actions?: NtfyAction[]) => Promise<void>;
     sendImage: (file: File) => Promise<void>;
     getActiveSession: () => ChatSession | undefined;
     confirmReservation: () => Promise<void>;
@@ -516,7 +517,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
     },
 
-    sendMessage: async (text: string) => {
+    sendMessage: async (text: string, tags: string[] = [], actions: NtfyAction[] = []) => {
         const { activeSessionId, sessions } = get();
         if (!activeSessionId || !text.trim()) return;
 
@@ -528,7 +529,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             text: text,
             timestamp: now,
             type: 'text',
-            status: 'sent'
+            status: 'sent',
+            tags,
+            actions
         };
 
         let updatedSession: ChatSession | undefined;
@@ -549,7 +552,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (updatedSession) await dbService.saveSession(updatedSession);
 
         try {
-            await sendNtfyMessage(activeSessionId, text);
+            await sendNtfyMessage(activeSessionId, text, { tags, actions });
         } catch (e) {
             console.error("Failed to send message", e);
         }
@@ -609,7 +612,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'confirmed' } : null,
             aiSuggestion: null
         }));
-        await sendMessage("✅ Reservation confirmed by Owner");
+        await sendMessage("✅ Reservation confirmed", ['white_check_mark', 'status:confirmed'], [
+            { action: 'view', label: 'Open Booking', url: window.location.href }
+        ]);
     },
 
     rejectReservation: async () => {
@@ -619,7 +624,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'rejected' } : null,
             aiSuggestion: null
         }));
-        await sendMessage("❌ Reservation rejected by Owner");
+        await sendMessage("❌ Reservation rejected", ['x', 'status:rejected'], [
+            { action: 'view', label: 'View Details', url: window.location.href }
+        ]);
     },
 
     collectReservation: async () => {
@@ -629,7 +636,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'collected' } : null,
             aiSuggestion: null
         }));
-        await sendMessage("🔑 Vehicle collected by Rider");
+        await sendMessage("🔑 Vehicle collected", ['key', 'status:collected'], [
+            { action: 'view', label: 'Track', url: window.location.href }
+        ]);
     },
 
     completeReservation: async () => {
@@ -639,6 +648,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'completed' } : null,
             aiSuggestion: null
         }));
-        await sendMessage("🏁 Lease completed successfully");
+        await sendMessage("🏁 Lease completed", ['checkered_flag', 'status:completed'], [
+            { action: 'view', label: 'View Receipt', url: window.location.href }
+        ]);
     }
 }));

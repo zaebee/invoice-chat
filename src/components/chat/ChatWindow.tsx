@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
-    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X
+    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, PartyPopper, ThumbsUp
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
-import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE } from '../../types';
+import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE, NtfyAction } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useChatStore } from '../../stores/chatStore';
 import { t } from '../../utils/i18n';
@@ -35,9 +35,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [messageInput, setMessageInput] = useState('');
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [showTagSelector, setShowTagSelector] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
+    const tagSelectorRef = useRef<HTMLDivElement>(null);
     
     // Store Actions
     const { 
@@ -61,6 +64,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setIsMenuOpen(false);
             }
+            if (tagSelectorRef.current && !tagSelectorRef.current.contains(event.target as Node)) {
+                setShowTagSelector(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -69,8 +75,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const handleSend = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!messageInput.trim()) return;
-        sendMessage(messageInput);
+        
+        const tags = selectedTag ? [selectedTag] : [];
+        const actions: NtfyAction[] = []; // Could add default view action here if needed
+
+        sendMessage(messageInput, tags, actions);
         setMessageInput('');
+        setSelectedTag(null);
+        setShowTagSelector(false);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,6 +181,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     const statusConfig = STATUS_CONFIG[leaseData.status || 'pending'] || STATUS_CONFIG['pending'];
+
+    const REACTION_TAGS = [
+        { id: 'warning', icon: <AlertTriangle size={16} />, label: 'Urgent', color: 'text-red-500 bg-red-50 border-red-200' },
+        { id: 'white_check_mark', icon: <Check size={16} />, label: 'Done', color: 'text-green-500 bg-green-50 border-green-200' },
+        { id: 'tada', icon: <PartyPopper size={16} />, label: 'Party', color: 'text-purple-500 bg-purple-50 border-purple-200' },
+        { id: '+1', icon: <ThumbsUp size={16} />, label: 'Ack', color: 'text-blue-500 bg-blue-50 border-blue-200' },
+    ];
 
     return (
         <div className="flex flex-col h-full bg-slate-50/30 relative">
@@ -390,32 +409,76 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         </div>
                     )}
 
-                    <form className="relative flex items-center gap-2" onSubmit={handleSend} autoComplete="off">
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors md:hidden">
-                            <ImageIcon size={22} />
-                        </button>
-                        <input 
-                            type="text" 
-                            name="message"
-                            className="flex-1 bg-slate-50 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-300 dark:focus:border-blue-700 rounded-full py-2.5 md:py-3 pl-4 md:pl-5 pr-10 md:pr-12 text-base md:text-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/20 text-slate-800 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                            placeholder={t('chat_type_message', lang)}
-                            value={messageInput}
-                            onChange={(e) => setMessageInput(e.target.value)}
-                        />
-                        <div className="absolute right-14 md:right-14 flex gap-2 text-slate-400 dark:text-slate-500 hidden md:flex">
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1">
-                                <ImageIcon size={20} />
+                    <div className="relative flex items-center gap-2">
+                        {/* TAG SELECTOR POPOVER */}
+                        {showTagSelector && (
+                            <div 
+                                ref={tagSelectorRef}
+                                className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 flex gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            >
+                                {REACTION_TAGS.map(tag => (
+                                    <button
+                                        key={tag.id}
+                                        onClick={() => { setSelectedTag(selectedTag === tag.id ? null : tag.id); setShowTagSelector(false); }}
+                                        className={`p-2 rounded-lg transition-all hover:scale-110 flex flex-col items-center gap-1 min-w-[50px]
+                                            ${selectedTag === tag.id ? tag.color : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}
+                                        `}
+                                    >
+                                        {tag.icon}
+                                        <span className="text-[9px] font-bold uppercase tracking-wider">{tag.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <form className="relative flex items-center gap-2 flex-1" onSubmit={handleSend} autoComplete="off">
+                            <button 
+                                type="button" 
+                                onClick={() => setShowTagSelector(!showTagSelector)} 
+                                className={`p-2.5 rounded-full transition-colors hidden md:block ${selectedTag ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            >
+                                <PlusCircle size={20} />
                             </button>
-                            <button type="button" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1"><Smile size={20} /></button>
-                        </div>
-                        <button 
-                            type="submit"
-                            disabled={!messageInput.trim()}
-                            className="bg-blue-600 text-white p-2.5 md:p-3 rounded-full hover:bg-blue-700 transition-all shadow-md flex-shrink-0 disabled:opacity-50 disabled:shadow-none active:scale-95"
-                        >
-                            <Send size={18} />
-                        </button>
-                    </form>
+
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors md:hidden">
+                                <ImageIcon size={22} />
+                            </button>
+                            
+                            <div className="flex-1 relative">
+                                {selectedTag && (
+                                    <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10">
+                                        <span className="flex items-center justify-center w-7 h-7 bg-purple-100 text-purple-600 rounded-full text-xs font-bold shadow-sm">
+                                            {REACTION_TAGS.find(t => t.id === selectedTag)?.icon}
+                                        </span>
+                                    </div>
+                                )}
+                                <input 
+                                    type="text" 
+                                    name="message"
+                                    className={`w-full bg-slate-50 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-300 dark:focus:border-blue-700 rounded-full py-2.5 md:py-3 pr-10 md:pr-12 text-base md:text-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/20 text-slate-800 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600
+                                        ${selectedTag ? 'pl-10' : 'pl-4 md:pl-5'}
+                                    `}
+                                    placeholder={t('chat_type_message', lang)}
+                                    value={messageInput}
+                                    onChange={(e) => setMessageInput(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="absolute right-14 md:right-14 flex gap-2 text-slate-400 dark:text-slate-500 hidden md:flex">
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1">
+                                    <ImageIcon size={20} />
+                                </button>
+                                <button type="button" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1"><Smile size={20} /></button>
+                            </div>
+                            <button 
+                                type="submit"
+                                disabled={!messageInput.trim()}
+                                className="bg-blue-600 text-white p-2.5 md:p-3 rounded-full hover:bg-blue-700 transition-all shadow-md flex-shrink-0 disabled:opacity-50 disabled:shadow-none active:scale-95"
+                            >
+                                <Send size={18} />
+                            </button>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>
