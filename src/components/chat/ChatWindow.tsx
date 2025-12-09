@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
-    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, PartyPopper, ThumbsUp
+    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, PartyPopper, ThumbsUp, ExternalLink, Tag
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE, NtfyAction } from '../../types';
@@ -389,7 +390,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <Sparkles size={16} className="animate-pulse" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5">AI Suggestion</div>
+                                <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5">{t('lbl_ai_suggestion', lang)}</div>
                                 <div className="text-xs text-slate-700 dark:text-slate-300 truncate">{aiSuggestion.reason}</div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">

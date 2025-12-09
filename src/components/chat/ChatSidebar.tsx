@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, Plus } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
@@ -231,13 +232,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <div className="p-8 text-center text-xs text-slate-400 italic h-full flex flex-col items-center justify-center gap-2">
                         {searchQuery ? (
                             <>
-                                <p className="mb-2 text-slate-500 dark:text-slate-400">Reservation "{searchQuery}" not found.</p>
+                                <p className="mb-2 text-slate-500 dark:text-slate-400">{t('msg_res_not_found', lang)} "{searchQuery}".</p>
                                 <button 
                                     onClick={handleCreateNew}
                                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-95"
                                 >
                                     <Plus size={16} />
-                                    Create Booking #{searchQuery}
+                                    {t('btn_create_booking', lang)} #{searchQuery}
                                 </button>
                             </>
                         ) : (
@@ -248,7 +249,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                         onClick={() => { setFilterStatus('all'); setSortBy('date'); }}
                                         className="text-blue-600 dark:text-blue-400 hover:underline"
                                     >
-                                        {t('reset', lang)} Filters
+                                        {t('reset', lang)} {t('lbl_filters', lang)}
                                     </button>
                                 )}
                             </>

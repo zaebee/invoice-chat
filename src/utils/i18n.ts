@@ -1,4 +1,5 @@
 
+
 import { Language } from '../types';
 
 export type TranslationKey =
@@ -150,6 +151,8 @@ export type TranslationKey =
   | 'btn_call'
   | 'btn_download_lease'
   | 'btn_download_invoice'
+  | 'btn_open_link'
+  | 'lbl_ai_suggestion'
   // Chat Sidebar
   | 'menu_mark_read'
   | 'menu_mark_unread'
@@ -161,6 +164,9 @@ export type TranslationKey =
   | 'sort_name'
   | 'lbl_filter_status'
   | 'filter_all'
+  | 'btn_create_booking'
+  | 'msg_res_not_found'
+  | 'lbl_filters'
   // Chat Window
   | 'timeline_title'
   | 'no_dates'
@@ -359,6 +365,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Позвонить',
     btn_download_lease: 'Скачать договор',
     btn_download_invoice: 'Скачать счет',
+    btn_open_link: 'Открыть ссылку',
+    lbl_ai_suggestion: 'AI Предложение',
     menu_mark_read: 'Прочитано',
     menu_mark_unread: 'Непрочитано',
     confirm_delete_chat: 'Вы уверены, что хотите удалить этот чат? Это действие необратимо.',
@@ -369,6 +377,9 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     sort_name: 'Имя',
     lbl_filter_status: 'Статус',
     filter_all: 'Все',
+    btn_create_booking: 'Создать бронь',
+    msg_res_not_found: 'Бронь не найдена',
+    lbl_filters: 'Фильтры',
     timeline_title: 'Таймлайн',
     no_dates: 'Даты не выбраны',
     expires_in: 'Истекает через',
@@ -560,6 +571,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Call',
     btn_download_lease: 'Download Lease',
     btn_download_invoice: 'Download Invoice',
+    btn_open_link: 'Open Link',
+    lbl_ai_suggestion: 'AI Suggestion',
     menu_mark_read: 'Mark as Read',
     menu_mark_unread: 'Mark as Unread',
     confirm_delete_chat: 'Are you sure you want to delete this conversation? This cannot be undone.',
@@ -570,6 +583,9 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     sort_name: 'Name',
     lbl_filter_status: 'Status',
     filter_all: 'All',
+    btn_create_booking: 'Create Booking',
+    msg_res_not_found: 'Reservation not found',
+    lbl_filters: 'Filters',
     timeline_title: 'Timeline',
     no_dates: 'No dates set',
     expires_in: 'Expires in',
@@ -761,6 +777,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'โทร',
     btn_download_lease: 'ดาวน์โหลดสัญญา',
     btn_download_invoice: 'ดาวน์โหลดใบแจ้งหนี้',
+    btn_open_link: 'เปิดลิงก์',
+    lbl_ai_suggestion: 'คำแนะนำ AI',
     menu_mark_read: 'ทำเครื่องหมายว่าอ่านแล้ว',
     menu_mark_unread: 'ทำเครื่องหมายว่ายังไม่อ่าน',
     confirm_delete_chat: 'คุณแน่ใจหรือไม่ว่าต้องการลบแชทนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้',
@@ -771,6 +789,9 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     sort_name: 'ชื่อ',
     lbl_filter_status: 'สถานะ',
     filter_all: 'ทั้งหมด',
+    btn_create_booking: 'สร้างการจอง',
+    msg_res_not_found: 'ไม่พบการจอง',
+    lbl_filters: 'ตัวกรอง',
     timeline_title: 'ไทม์ไลน์',
     no_dates: 'ไม่ได้เลือกวันที่',
     expires_in: 'หมดเวลาใน',
@@ -962,6 +983,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Gọi',
     btn_download_lease: 'Tải hợp đồng',
     btn_download_invoice: 'Tải hóa đơn',
+    btn_open_link: 'Mở liên kết',
+    lbl_ai_suggestion: 'Gợi ý AI',
     menu_mark_read: 'Đánh dấu đã đọc',
     menu_mark_unread: 'Đánh dấu chưa đọc',
     confirm_delete_chat: 'Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Hành động này không thể hoàn tác.',
@@ -972,6 +995,9 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     sort_name: 'Tên',
     lbl_filter_status: 'Trạng thái',
     filter_all: 'Tất cả',
+    btn_create_booking: 'Tạo đặt chỗ',
+    msg_res_not_found: 'Không tìm thấy đặt chỗ',
+    lbl_filters: 'Bộ lọc',
     timeline_title: 'Dòng thời gian',
     no_dates: 'Chưa chọn ngày',
     expires_in: 'Hết hạn trong',
@@ -1163,6 +1189,8 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     btn_call: 'Panggil',
     btn_download_lease: 'Unduh Sewa',
     btn_download_invoice: 'Unduh Faktur',
+    btn_open_link: 'Buka Tautan',
+    lbl_ai_suggestion: 'Saran AI',
     menu_mark_read: 'Tandai Sudah Dibaca',
     menu_mark_unread: 'Tandai Belum Dibaca',
     confirm_delete_chat: 'Apakah Anda yakin ingin menghapus percakapan ini? Ini tidak dapat dibatalkan.',
@@ -1173,6 +1201,9 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
     sort_name: 'Nama',
     lbl_filter_status: 'Status',
     filter_all: 'Semua',
+    btn_create_booking: 'Buat Pesanan',
+    msg_res_not_found: 'Reservasi tidak ditemukan',
+    lbl_filters: 'Filter',
     timeline_title: 'Linimasa',
     no_dates: 'Tanggal tidak dipilih',
     expires_in: 'Kadaluwarsa dalam',
