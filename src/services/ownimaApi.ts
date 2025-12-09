@@ -1,4 +1,3 @@
-
 import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';

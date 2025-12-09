@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag } from 'lucide-react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -90,6 +90,14 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
          } catch { return ''; }
     };
 
+    const formatFileSize = (bytes: number) => {
+        if (bytes < 1024) return bytes + ' B';
+        const k = 1024;
+        const sizes = ['KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i - 1];
+    };
+
     // Helper to render relevant actions based on message status context
     const renderActions = (msgStatus: LeaseStatus | undefined) => {
         // Only show actions if the message status matches the CURRENT lease status
@@ -142,6 +150,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             {messages.map((msg: ChatMessage, index: number) => {
                 const prevMsg = index > 0 ? messages[index - 1] : null;
                 const isDifferentDay = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
+                const isHighPriority = msg.priority && msg.priority >= 4;
+                const isUrgent = msg.priority === 5;
 
                 return (
                     <React.Fragment key={msg.id}>
@@ -196,20 +206,100 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                         {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" /> : currentUser.name[0]}
                                     </div>
                                 )}
-                                <div className={`flex flex-col ${msg.senderId === 'me' ? 'items-end' : 'items-start'}`}>
-                                    {msg.type === 'image' && msg.attachmentUrl ? (
-                                        <div className={`overflow-hidden rounded-2xl shadow-sm border border-black/5 dark:border-white/10 ${msg.senderId === 'me' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
-                                            <img src={msg.attachmentUrl} alt="Attachment" className="max-w-full max-h-[300px] object-cover bg-slate-100 dark:bg-slate-800" loading="lazy" />
+                                
+                                <div className="flex flex-col gap-1">
+                                    {/* Message Bubble Container */}
+                                    <div className={`flex flex-col ${msg.senderId === 'me' ? 'items-end' : 'items-start'}`}>
+                                        
+                                        {/* PRIORITY LABEL */}
+                                        {isHighPriority && (
+                                            <div className={`flex items-center gap-1 text-[10px] font-bold mb-1 uppercase tracking-wide px-2 py-0.5 rounded-full ${isUrgent ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'}`}>
+                                                {isUrgent ? <AlertCircle size={10} /> : <AlertTriangle size={10} />}
+                                                {isUrgent ? 'Urgent' : 'High Priority'}
+                                            </div>
+                                        )}
+
+                                        {/* ATTACHMENT: IMAGE */}
+                                        {msg.type === 'image' && msg.attachmentUrl && (
+                                            <div className={`overflow-hidden rounded-2xl shadow-sm border border-black/5 dark:border-white/10 mb-1 ${msg.senderId === 'me' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
+                                                <img src={msg.attachmentUrl} alt={msg.attachment?.name || "Attachment"} className="max-w-full max-h-[300px] object-cover bg-slate-100 dark:bg-slate-800" loading="lazy" />
+                                            </div>
+                                        )}
+
+                                        {/* ATTACHMENT: FILE */}
+                                        {msg.type === 'file' && msg.attachment && (
+                                            <a 
+                                                href={msg.attachment.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className={`flex items-center gap-3 p-3 rounded-xl border mb-1 transition-all group ${
+                                                    msg.senderId === 'me' 
+                                                        ? 'bg-blue-600 border-blue-500 text-white' 
+                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                }`}
+                                            >
+                                                <div className={`p-2 rounded-lg ${msg.senderId === 'me' ? 'bg-blue-500/50' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                                    <File size={20} className={msg.senderId === 'me' ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
+                                                </div>
+                                                <div className="flex flex-col min-w-[100px]">
+                                                    <span className="text-xs font-bold truncate max-w-[150px]">{msg.attachment.name}</span>
+                                                    <span className={`text-[10px] ${msg.senderId === 'me' ? 'text-blue-100' : 'text-slate-400'}`}>
+                                                        {formatFileSize(msg.attachment.size)}
+                                                    </span>
+                                                </div>
+                                                <Download size={16} className={`opacity-70 group-hover:opacity-100 ${msg.senderId === 'me' ? 'text-white' : 'text-slate-400'}`} />
+                                            </a>
+                                        )}
+
+                                        {/* TEXT BUBBLE */}
+                                        {msg.text && (
+                                            <div className={`px-3 py-2 md:px-4 md:py-2.5 shadow-sm text-[13px] md:text-sm leading-relaxed relative ${
+                                                msg.senderId === 'me' 
+                                                    ? `bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-tr-sm shadow-blue-200/50 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`
+                                                    : `bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] ${isUrgent ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10' : ''}`
+                                            }`}>
+                                                {msg.text}
+                                            </div>
+                                        )}
+
+                                        {/* ACTION LINK */}
+                                        {msg.clickUrl && (
+                                            <a 
+                                                href={msg.clickUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className={`mt-1.5 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                                                    msg.senderId === 'me'
+                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                }`}
+                                            >
+                                                <ExternalLink size={12} />
+                                                Open Link
+                                            </a>
+                                        )}
+
+                                    </div>
+
+                                    {/* METADATA ROW: Time + Tags */}
+                                    <div className={`flex flex-wrap items-center gap-2 mt-0.5 px-1 ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}>
+                                        
+                                        {/* Tags */}
+                                        {msg.tags && msg.tags.length > 0 && (
+                                            <div className="flex gap-1">
+                                                {msg.tags.filter(t => !t.startsWith('status:') && t !== 'system').map(tag => (
+                                                    <span key={tag} className="flex items-center gap-0.5 text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                                                        <Tag size={8} /> {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-slate-400 dark:text-slate-500 font-medium select-none">
+                                            {msg.senderId === 'me' && msg.status === 'read' && <CheckCheck size={12} className="text-blue-500" />}
+                                            {msg.senderId === 'me' && msg.status === 'sent' && <Check size={12} />}
+                                            <span>{formatTime(msg.timestamp)}</span>
                                         </div>
-                                    ) : (
-                                        <div className={`px-3 py-2 md:px-4 md:py-2.5 shadow-sm text-[13px] md:text-sm leading-relaxed ${msg.senderId === 'me' ? 'bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-tr-sm shadow-blue-200/50' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)]'}`}>
-                                            {msg.text}
-                                        </div>
-                                    )}
-                                    <div className="flex items-center gap-1.5 mt-1 px-1 text-[9px] md:text-[10px] text-slate-400 dark:text-slate-500 font-medium select-none">
-                                        {msg.senderId === 'me' && msg.status === 'read' && <CheckCheck size={12} className="text-blue-500" />}
-                                        {msg.senderId === 'me' && msg.status === 'sent' && <Check size={12} />}
-                                        <span>{formatTime(msg.timestamp)}</span>
                                     </div>
                                 </div>
                             </div>

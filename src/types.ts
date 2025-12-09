@@ -107,7 +107,7 @@ export interface LeaseData {
 
 // --- CHAT TYPES ---
 
-export type MessageType = 'text' | 'system' | 'image';
+export type MessageType = 'text' | 'system' | 'image' | 'file';
 
 // Internal UI Message Format
 export interface ChatMessage {
@@ -117,7 +117,17 @@ export interface ChatMessage {
   timestamp: number; // Unix timestamp in ms
   type: MessageType;
   status: 'sent' | 'read';
-  attachmentUrl?: string; // URL for image/file attachments
+  attachmentUrl?: string; // URL for image/file attachments (Legacy/Easy access)
+  attachment?: {
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    expires?: number;
+  };
+  priority?: number; // 1=min, 3=default, 5=max
+  tags?: string[];
+  clickUrl?: string;
   metadata?: {
     status?: LeaseStatus;
   };
@@ -133,11 +143,13 @@ export interface NtfyMessage {
   title?: string; // Used as Sender Name
   priority?: number;
   tags?: string[]; // Used for flags like 'read', 'system', 'status:collected'
+  click?: string; // Action URL
   attachment?: {
     name: string;
     url: string;
     type: string;
     size: number;
+    expires?: number;
   };
 }
 
