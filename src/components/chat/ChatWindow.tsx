@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
-    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, PartyPopper, ThumbsUp
+    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, Banknote, ThumbsUp
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE, NtfyAction } from '../../types';
@@ -183,10 +183,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const statusConfig = STATUS_CONFIG[leaseData.status || 'pending'] || STATUS_CONFIG['pending'];
 
     const REACTION_TAGS = [
-        { id: 'warning', icon: <AlertTriangle size={16} />, label: 'Urgent', color: 'text-red-500 bg-red-50 border-red-200' },
-        { id: 'white_check_mark', icon: <Check size={16} />, label: 'Done', color: 'text-green-500 bg-green-50 border-green-200' },
-        { id: 'tada', icon: <PartyPopper size={16} />, label: 'Party', color: 'text-purple-500 bg-purple-50 border-purple-200' },
-        { id: '+1', icon: <ThumbsUp size={16} />, label: 'Ack', color: 'text-blue-500 bg-blue-50 border-blue-200' },
+        { id: '+1', icon: <ThumbsUp size={16} />, label: 'Ack', color: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' },
+        { id: 'white_check_mark', icon: <Check size={16} />, label: 'Done', color: 'text-green-600 bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400' },
+        { id: 'moneybag', icon: <Banknote size={16} />, label: 'Paid', color: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400' },
+        { id: 'warning', icon: <AlertTriangle size={16} />, label: 'Issue', color: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400' },
     ];
 
     return (

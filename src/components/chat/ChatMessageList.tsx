@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2 } from 'lucide-react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -21,6 +21,29 @@ interface ChatMessageListProps {
         timeLeft: string;
     };
 }
+
+const TAG_STYLES: Record<string, { icon: React.ReactNode, className: string, label?: string }> = {
+    '+1': { 
+        icon: <ThumbsUp size={10} />, 
+        className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400',
+        label: 'Ack' 
+    },
+    'white_check_mark': { 
+        icon: <Check size={10} />, 
+        className: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400',
+        label: 'Done'
+    },
+    'moneybag': { 
+        icon: <Banknote size={10} />, 
+        className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400',
+        label: 'Paid'
+    },
+    'warning': { 
+        icon: <AlertTriangle size={10} />, 
+        className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400',
+        label: 'Issue'
+    }
+};
 
 const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action, isMe }) => {
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -367,14 +390,24 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                     {/* METADATA ROW: Time + Tags */}
                                     <div className={`flex flex-wrap items-center gap-2 mt-0.5 px-1 ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}>
                                         
-                                        {/* Tags */}
+                                        {/* Visual Tags */}
                                         {msg.tags && msg.tags.length > 0 && (
                                             <div className="flex gap-1">
-                                                {msg.tags.filter(t => !t.startsWith('status:') && t !== 'system').map(tag => (
-                                                    <span key={tag} className="flex items-center gap-0.5 text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                                                        <Tag size={8} /> {tag}
-                                                    </span>
-                                                ))}
+                                                {msg.tags.filter(t => !t.startsWith('status:') && t !== 'system').map(tag => {
+                                                    const style = TAG_STYLES[tag];
+                                                    if (style) {
+                                                        return (
+                                                            <span key={tag} className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${style.className}`}>
+                                                                {style.icon} {style.label || tag}
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span key={tag} className="flex items-center gap-0.5 text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                                                            <Tag size={8} /> {tag}
+                                                        </span>
+                                                    );
+                                                })}
                                             </div>
                                         )}
 
