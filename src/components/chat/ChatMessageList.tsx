@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote, Radio } from 'lucide-react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote, Radio, Filter, X } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -136,11 +136,24 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     deadline
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [filterPriority, setFilterPriority] = useState(false);
+    const [filterTag, setFilterTag] = useState('');
 
-    // Auto-scroll
+    const filteredMessages = useMemo(() => {
+        return messages.filter(msg => {
+            if (filterPriority && (!msg.priority || msg.priority < 4)) return false;
+            if (filterTag && !msg.tags?.some(t => t.toLowerCase().includes(filterTag.toLowerCase()))) return false;
+            return true;
+        });
+    }, [messages, filterPriority, filterTag]);
+
+    // Auto-scroll logic: Only scroll if no filter active or if forced
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages.length]);
+        if (!filterPriority && !filterTag) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages.length, filterPriority, filterTag]);
 
     // Read Receipts
     useEffect(() => {
@@ -164,7 +177,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         elements.forEach(el => observer.observe(el));
 
         return () => observer.disconnect();
-    }, [messages, onReadMessage]);
+    }, [filteredMessages, onReadMessage]);
 
     // Formatters
     const formatTime = (timestamp: number) => {
@@ -246,10 +259,63 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         }
     };
 
+    const hasActiveFilters = filterPriority || filterTag;
+
     return (
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 overscroll-contain">
-            {messages.map((msg: ChatMessage, index: number) => {
-                const prevMsg = index > 0 ? messages[index - 1] : null;
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 overscroll-contain relative">
+            
+            {/* Filter Toggle - Floating Top Right */}
+            <div className="sticky top-0 z-40 flex justify-end -mt-2 -mr-2 mb-2 pointer-events-none">
+                 <div className="pointer-events-auto">
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-2 rounded-full shadow-sm border transition-all ${hasActiveFilters ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'}`}
+                    >
+                        <Filter size={16} />
+                    </button>
+                 </div>
+            </div>
+
+            {/* Filter Panel */}
+            {showFilters && (
+                <div className="sticky top-10 z-40 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md mb-4 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                            <input 
+                                type="checkbox" 
+                                checked={filterPriority} 
+                                onChange={(e) => setFilterPriority(e.target.checked)}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            High Priority Only
+                        </label>
+                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                        <input 
+                            type="text" 
+                            placeholder="Filter by tag..." 
+                            className="flex-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 outline-none focus:border-blue-400 dark:focus:border-blue-600 text-slate-800 dark:text-slate-200"
+                            value={filterTag}
+                            onChange={(e) => setFilterTag(e.target.value)}
+                        />
+                        {hasActiveFilters && (
+                            <button onClick={() => { setFilterPriority(false); setFilterTag(''); }} className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Empty State */}
+            {filteredMessages.length === 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                    <p className="text-xs italic">No messages found.</p>
+                    {hasActiveFilters && <button onClick={() => { setFilterPriority(false); setFilterTag(''); }} className="text-blue-500 dark:text-blue-400 text-xs font-bold mt-2 hover:underline">Clear Filters</button>}
+                </div>
+            )}
+
+            {filteredMessages.map((msg: ChatMessage, index: number) => {
+                const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
                 const isDifferentDay = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
                 const isHighPriority = msg.priority && msg.priority >= 4;
                 const isUrgent = msg.priority === 5;
@@ -376,7 +442,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                                 }`}
                                             >
                                                 <ExternalLink size={12} />
-                                                Open Link
+                                                {t('btn_open_link', lang)}
                                             </a>
                                         )}
 
