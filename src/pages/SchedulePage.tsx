@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../stores/chatStore';
 import { Language, ChatSession } from '../types';
@@ -8,6 +5,7 @@ import { t } from '../utils/i18n';
 import { Car, AlertTriangle, ChevronLeft, ChevronRight, CalendarDays, MapPin } from 'lucide-react';
 import { STATUS_CONFIG } from '../components/chat/ChatUtils';
 import { useNavigate } from 'react-router-dom';
+import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
 interface SchedulePageProps {
     lang: Language;
@@ -212,6 +210,9 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     const [hoveredSession, setHoveredSession] = useState<string | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     
+    // Draggable Scroll Hook
+    const { scrollContainerRef, onMouseDown, isDragging, hasMoved } = useDraggableScroll<HTMLDivElement>();
+    
     // Tick to force re-render for real-time "Overdue" expansion
     const [tick, setTick] = useState(0);
     useEffect(() => {
@@ -265,7 +266,11 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
             </div>
 
             {/* 2. Timeline Grid (Scrollable Container) */}
-            <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 relative overscroll-contain">
+            <div 
+                ref={scrollContainerRef}
+                onMouseDown={onMouseDown}
+                className={`flex-1 overflow-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 relative overscroll-contain transition-colors ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+            >
                 <div className="min-w-max">
                     
                     {/* A. Sticky Header Row (Z-50) */}
@@ -364,8 +369,17 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                         return (
                                             <div
                                                 key={session.id}
-                                                onClick={() => navigate(`/chat/detail/${session.id}`)}
+                                                onClick={(e) => {
+                                                    // Prevent navigation if user was dragging
+                                                    if (hasMoved.current) {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        return;
+                                                    }
+                                                    navigate(`/chat/detail/${session.id}`);
+                                                }}
                                                 onMouseEnter={(e) => {
+                                                    if (isDragging) return; // Don't show tooltip while dragging
                                                     setHoveredSession(session.id);
                                                     setTooltipPos({ x: e.clientX, y: e.clientY });
                                                 }}
@@ -376,7 +390,9 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                                     width: Math.max(width - 2, 4), // Small gap on right
                                                     height: BAR_HEIGHT,
                                                     top,
-                                                    zIndex: 10 + lane 
+                                                    zIndex: 10 + lane,
+                                                    // Disable pointer events on booking content while dragging to prevent hover effects flickering
+                                                    pointerEvents: isDragging ? 'none' : 'auto'
                                                 }}
                                             >
                                                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${config.accent}`}></div>
@@ -415,7 +431,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
             </div>
 
             {/* 3. Tooltip Portal (Positioned absolutely) */}
-            {hoveredSession && (
+            {hoveredSession && !isDragging && (
                 <div 
                     className="fixed z-[100] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 w-64 animate-in fade-in zoom-in-95 duration-150 pointer-events-none"
                     style={{ left: Math.min(tooltipPos.x + 20, window.innerWidth - 280), top: Math.min(tooltipPos.y + 20, window.innerHeight - 150) }}
