@@ -15,16 +15,39 @@ export const ntfyToChatMessage = (ntfy: NtfyMessage, initialStatus: 'read' | 'se
         senderId = 'me';
     }
     
+    // Initial extraction with fallback
+    let text = ntfy.message;
+    let tags = ntfy.tags || [];
+    let actions = ntfy.actions || [];
+    let priority = ntfy.priority;
+
+    // FIX: Check if the message body is actually a JSON string (Tunnelled Payload)
+    // This handles cases where Ntfy server treats the JSON body as raw text
+    if (typeof text === 'string' && (text.startsWith('{') || text.startsWith('['))) {
+        try {
+            const parsed = JSON.parse(text);
+            // Check for our expected structure
+            if (parsed && typeof parsed === 'object' && parsed.message) {
+                text = parsed.message;
+                if (parsed.tags && Array.isArray(parsed.tags)) tags = parsed.tags;
+                if (parsed.actions && Array.isArray(parsed.actions)) actions = parsed.actions;
+                if (parsed.priority !== undefined) priority = parsed.priority;
+            }
+        } catch (e) {
+            // Not a JSON object, treat as normal text
+        }
+    }
+    
     // System messages detection
-    if (ntfy.title === 'System' || ntfy.tags?.includes('system')) senderId = 'system';
+    if (ntfy.title === 'System' || tags.includes('system')) senderId = 'system';
 
     let type: MessageType = 'text';
     let statusMetadata: LeaseStatus | undefined = undefined;
     let attachmentUrl: string | undefined = undefined;
 
-    if (ntfy.tags?.includes('system')) {
+    if (tags.includes('system')) {
         type = 'system';
-        const statusTag = ntfy.tags?.find(t => t.startsWith('status:'));
+        const statusTag = tags.find(t => t.startsWith('status:'));
         if (statusTag) {
             statusMetadata = statusTag.split(':')[1] as LeaseStatus;
         }
@@ -43,15 +66,15 @@ export const ntfyToChatMessage = (ntfy: NtfyMessage, initialStatus: 'read' | 'se
     return {
         id: ntfy.id,
         senderId,
-        text: ntfy.message, // Ntfy usually uses filename as message for uploads if not specified
+        text, // Use processed text
         timestamp,
         type,
         status: initialStatus,
         attachmentUrl,
-        priority: ntfy.priority,
-        tags: ntfy.tags,
+        priority, // Use processed priority
+        tags, // Use processed tags
         clickUrl: ntfy.click,
-        actions: ntfy.actions,
+        actions, // Use processed actions
         metadata: {
             status: statusMetadata
         }
