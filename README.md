@@ -70,6 +70,9 @@ API_KEY=your_google_gemini_api_key
 
 # Optional: Override backend URL (Default: https://stage.ownima.com/api/v1/reservation)
 OWNIMA_API_URL=https://api.your-backend.com/v1/reservation
+
+# Optional: Mapbox API Token for map features
+MAPBOX_API_KEY=pk.eyJ1Ij...
 ```
 
 ### Development
