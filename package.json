@@ -12,6 +12,7 @@
     "@google/genai": "latest",
     "@react-pdf/renderer": "^3.4.4",
     "@vercel/analytics": "^1.2.2",
+    "@vercel/speed-insights": "^1.0.10",
     "lucide-react": "^0.378.0",
     "qrcode": "^1.5.3",
     "react": "^18.3.1",
