@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { InvoiceData, LeaseData, ChatMessage, LeaseStatus } from "../types";
 

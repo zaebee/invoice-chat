@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface InputGroupProps {
@@ -36,10 +37,12 @@ const InputGroup: React.FC<InputGroupProps> = ({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         readOnly={readOnly}
+        // text-base prevents iOS zoom on focus. md:text-sm scales it down on desktop.
+        // Reduced padding and rounded-lg for a more professional, compact look.
         className={`w-full px-3 py-2.5 border rounded-lg text-base md:text-sm outline-none transition-all duration-200
           ${readOnly 
             ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed shadow-none' 
-            : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700 placeholder-slate-400 dark:placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-500 hover:border-slate-400 dark:hover:border-slate-600 shadow-sm'
+            : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder-slate-400 dark:placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 hover:border-slate-400 dark:hover:border-slate-600 shadow-sm'
           }
         `}
       />

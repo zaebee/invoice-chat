@@ -1,3 +1,4 @@
+
 import { LeaseData, INITIAL_LEASE, LeaseStatus, NtfyAction } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -10,7 +11,7 @@ const API_V1_ROOT = BASE_RESERVATION_URL.replace(/\/reservation\/?$/, '');
 const INVOICE_ENDPOINT = `${API_V1_ROOT}/finance/invoice`;
 const OWNER_PROFILE_ENDPOINT = `${API_V1_ROOT}/rider/owner`;
 const CHAT_BASE_URL = 'https://stage.ownima.com'; // Dedicated Chat/Ntfy domain
-const AVATAR_BASE_URL = 'https://stage.ownima.com';
+const ASSET_BASE_URL = 'https://stage.ownima.com';
 
 interface OwnerProfile {
     id: string;
@@ -66,26 +67,6 @@ const mapApiStatus = (rawStatus: string | undefined): LeaseStatus => {
     return 'pending';
 };
 
-// Helper to safely combine date and time into a valid ISO string
-const combineDateTime = (dateIso: string | undefined, timeStr: string | undefined): string | undefined => {
-    if (!dateIso) return undefined;
-    if (!timeStr) return dateIso;
-    
-    // If timeStr is already full ISO (contains T), prefer it
-    if (timeStr.includes('T')) return timeStr;
-
-    // Extract YYYY-MM-DD from the dateIso
-    const datePart = dateIso.split('T')[0];
-    
-    // Check if timeStr is a valid time format (HH:MM or HH:MM:SS)
-    // Simple validation: contains colon
-    if (timeStr.includes(':')) {
-        return `${datePart}T${timeStr}`;
-    }
-
-    return dateIso;
-};
-
 const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): Partial<LeaseData> => {
     try {
         const r = json.reservation;
@@ -114,7 +95,7 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         if (v.picture) {
             const path = v.picture.cover_previews?.s || v.picture.cover;
             if (path) {
-                vehicleImageUrl = `${AVATAR_BASE_URL}${path}`;
+                vehicleImageUrl = `${ASSET_BASE_URL}${path}`;
             }
         }
 
@@ -160,9 +141,20 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
 
         // Avatar Mapping
         const avatarPath = rider.avatar;
-        const avatarUrl = avatarPath ? `${AVATAR_BASE_URL}${avatarPath}` : undefined;
+        const avatarUrl = avatarPath ? `${ASSET_BASE_URL}${avatarPath}` : undefined;
 
         // Exact Times for Scheduler (Prefer TimeRange start/end combined with date, fallback to reservation date_from/to)
+        const combineDateTime = (dateIso: string | undefined, timeStr: string | undefined): string | undefined => {
+            if (!dateIso) return undefined;
+            if (!timeStr) return dateIso;
+            if (timeStr.includes('T')) return timeStr;
+            const datePart = dateIso.split('T')[0];
+            if (timeStr.includes(':')) {
+                return `${datePart}T${timeStr}`;
+            }
+            return dateIso;
+        };
+
         const exactPickupDate = combineDateTime(r.date_from, p.collect_time?.start);
         const exactDropoffDate = combineDateTime(r.date_to, d.return_time?.end);
 
@@ -189,7 +181,6 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
                 time: dropoffTime,
                 fee: dropoffFee
             },
-            // Add exact times for scheduler
             exactPickupDate,
             exactDropoffDate,
             pricing: {
@@ -265,7 +256,6 @@ export const fetchReservation = async (id: string, signal?: AbortSignal): Promis
         }
 
         if (!response.ok) {
-            // Check for 404 specifically
             if (response.status === 404) return null;
             throw new Error(`API Error: ${response.status}`);
         }
@@ -447,21 +437,27 @@ interface SendNtfyOptions {
 
 export const sendNtfyMessage = async (topicId: string, message: string, options?: SendNtfyOptions) => {
     try {
-        // Use JSON payload for rich messages (tags, actions)
-        // Sending to specific topic URL: /chat-<uuid>
-        const payload = {
-            message: message,
-            tags: options?.tags,
-            priority: options?.priority,
-            actions: options?.actions
-        };
+        const headers: Record<string, string> = {};
+        let body: string = message;
+
+        if (options) {
+            // Use JSON payload for richer features
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify({
+                topic: `chat-${topicId}`, // Explicitly targeting this topic if needed, but we post to URL
+                message: message,
+                tags: options.tags,
+                priority: options.priority,
+                actions: options.actions
+            });
+        } else {
+            headers['Priority'] = 'low';
+        }
 
         await fetch(`${CHAT_BASE_URL}/chat-${topicId}`, {
             method: 'POST',
-            body: JSON.stringify(payload),
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            body: body,
+            headers: headers
         });
     } catch (e) {
         console.error("Send chat error", e);

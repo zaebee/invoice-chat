@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
-import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Globe, Share2, MessageCircle, CalendarDays } from 'lucide-react';
-import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
+import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Share2, MessageCircle, CalendarDays } from 'lucide-react';
+import { Link, useParams, useLocation } from 'react-router-dom';
 
 import InvoicePreview from '../components/InvoicePreview';
 import LeasePreview from '../components/LeasePreview';
@@ -13,7 +14,6 @@ import { LoginModal } from '../components/modals/LoginModal';
 import { AiModal } from '../components/modals/AiModal';
 import { ChatLayout } from '../components/chat/ChatLayout';
 import SchedulePage from './SchedulePage';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 import { useInvoice } from '../hooks/useInvoice';
 import { useLease } from '../hooks/useLease';
@@ -24,16 +24,16 @@ import { useChatStore } from '../stores/chatStore';
 import { InvoiceData, LeaseData } from '../types';
 import { t } from '../utils/i18n';
 import { BrandLogo } from '../components/ui/BrandLogo';
+import { LanguageSelector } from '../components/ui/LanguageSelector';
 
 type DocType = 'invoice' | 'lease' | 'chat' | 'schedule';
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const navigate = useNavigate();
-  
   const [docType, setDocType] = useState<DocType>('chat');
   
+  // Use persistent language hook
   const { lang, setLang } = useLanguage('en');
   
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -54,7 +54,7 @@ export default function EditorPage() {
 
   // Route Handling
   useEffect(() => {
-    if (location.pathname === '/schedule') {
+    if (location.pathname.includes('/schedule')) {
         setDocType('schedule');
     } else if (id) {
         setDocType('chat');
@@ -78,7 +78,7 @@ export default function EditorPage() {
   }, [chatStore.leaseContext]);
 
   const handleSmartImport = async () => {
-    const result = await ai.parse(docType === 'chat' ? 'lease' : (docType === 'schedule' ? 'lease' : docType)); // Fallback
+    const result = await ai.parse(docType === 'chat' || docType === 'schedule' ? 'lease' : docType); // Fallback for chat/schedule
     if (!result) return;
 
     if (docType === 'invoice') {
@@ -128,10 +128,6 @@ export default function EditorPage() {
     }
   };
 
-  const toggleLang = () => {
-      setLang(prev => prev === 'ru' ? 'en' : 'ru');
-  };
-
   const getLeasePreviewLink = () => {
       let link = `/preview/lease/${lease.data.reservationId}`;
       if (lease.data.contractTemplateId) {
@@ -140,40 +136,31 @@ export default function EditorPage() {
       return link;
   };
 
-  const handleNavClick = (type: DocType) => {
-      setDocType(type);
-      if (type === 'schedule') {
-          navigate('/schedule');
-      } else if (type === 'chat') {
-          navigate('/');
-      } else {
-          // Stay on current route but change view
-      }
-  };
-
   const NavPills = () => (
      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-        <button 
-            onClick={() => handleNavClick('chat')} 
+        <Link 
+            to="/"
+            onClick={() => setDocType('chat')} 
             className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'chat' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <MessageCircle size={16} /> {t('switch_chat', lang)}
-        </button>
-        <button 
-            onClick={() => handleNavClick('schedule')} 
+        </Link>
+        <Link 
+            to="/schedule"
+            onClick={() => setDocType('schedule')} 
             className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'schedule' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <CalendarDays size={16} /> {t('switch_schedule', lang)}
-        </button>
+        </Link>
         <button 
-            onClick={() => handleNavClick('lease')} 
+            onClick={() => setDocType('lease')} 
             className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'lease' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <Car size={16} /> {t('switch_lease', lang)}
         </button>
         {showInvoiceTab && (
          <button 
-            onClick={() => handleNavClick('invoice')} 
+            onClick={() => setDocType('invoice')} 
             className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'invoice' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
         >
             <FileText size={16} /> {t('switch_invoice', lang)}
@@ -183,22 +170,25 @@ export default function EditorPage() {
   );
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div className="h-screen bg-slate-50 dark:bg-slate-900 flex flex-col font-sans overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* UNIFIED APP HEADER */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 shrink-0 z-30 shadow-sm">
+        {/* Z-Index raised to 100 to ensure dropdowns overlap sticky scheduler headers (z-50) */}
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 shrink-0 z-[100] relative shadow-sm">
              {/* Left: Logo + AI + Nav (Desktop) */}
              <div className="flex items-center gap-4 md:gap-6">
                  <Link to="/"><BrandLogo className="text-slate-800 dark:text-white h-6" /></Link>
                  
                  <button 
                     onClick={ai.open}
-                    className="flex items-center gap-2 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 font-bold tracking-wide transition-colors"
+                    className="flex items-center gap-2 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 font-bold tracking-wide"
                 >
                     <Wand2 size={14} /> AI
                 </button>
 
                  <div className="hidden md:block">
+                     {/* Hide global nav if in chat mode, assuming local nav takes over */}
+                     {/* UPDATE: Always show NavPills to allow switching back from specific views */}
                      <NavPills />
                  </div>
              </div>
@@ -207,37 +197,30 @@ export default function EditorPage() {
              <div className="flex items-center gap-3">
                  {/* Mobile Nav Icons (Simple) */}
                  <div className="md:hidden flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                    <button onClick={() => handleNavClick('chat')} className={`p-2 rounded-md ${docType === 'chat' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><MessageCircle size={18} /></button>
-                    <button onClick={() => handleNavClick('schedule')} className={`p-2 rounded-md ${docType === 'schedule' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><CalendarDays size={18} /></button>
-                    <button onClick={() => handleNavClick('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Car size={18} /></button>
+                    <Link to="/" onClick={() => setDocType('chat')} className={`p-2 rounded-md ${docType === 'chat' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><MessageCircle size={18} /></Link>
+                    <Link to="/schedule" onClick={() => setDocType('schedule')} className={`p-2 rounded-md ${docType === 'schedule' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><CalendarDays size={18} /></Link>
+                    <button onClick={() => setDocType('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Car size={18} /></button>
                  </div>
 
-                 <ThemeToggle />
-
-                 <button
-                    onClick={toggleLang}
-                    className="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
-                    title="Switch Language"
-                >
-                    <Globe size={20} />
-                    <span className="text-xs font-bold uppercase">{lang}</span>
-                </button>
+                 <LanguageSelector currentLang={lang} onLanguageChange={setLang} />
              </div>
         </header>
 
         {/* CONTENT AREA */}
         <div className="flex-1 flex overflow-hidden relative">
             
-            {docType === 'schedule' ? (
-                <div className="w-full h-full">
-                    <SchedulePage lang={lang} />
-                </div>
-            ) : docType === 'chat' ? (
+            {docType === 'chat' ? (
                  <div className="w-full h-full p-0 md:p-6 overflow-hidden">
                      <div className="h-full max-w-[1600px] mx-auto">
                         <ChatLayout leaseData={lease.data} lang={lang} leaseHandlers={lease} />
                      </div>
                  </div>
+            ) : docType === 'schedule' ? (
+                <div className="w-full h-full p-0 md:p-6 overflow-hidden">
+                    <div className="h-full max-w-[1600px] mx-auto bg-white dark:bg-slate-900 md:rounded-xl md:border border-slate-200 dark:border-slate-800 md:shadow-sm overflow-hidden">
+                       <SchedulePage lang={lang} />
+                    </div>
+                </div>
             ) : (
                  /* EDITOR SPLIT VIEW */
                  <div className="w-full h-full flex flex-col md:flex-row relative">
@@ -247,13 +230,13 @@ export default function EditorPage() {
                         <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex shadow-sm">
                             <button 
                                 onClick={() => setMobileTab('edit')}
-                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'edit' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500'}`}
+                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'edit' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400'}`}
                             >
                                 {t('mobile_editor_tab', lang)}
                             </button>
                             <button 
                                 onClick={() => setMobileTab('preview')}
-                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'preview' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500'}`}
+                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'preview' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400'}`}
                             >
                                 {t('mobile_preview_tab', lang)}
                             </button>
@@ -272,7 +255,7 @@ export default function EditorPage() {
                                    {docType === 'invoice' && (
                                         <button 
                                             onClick={invoice.reset} 
-                                            className="text-slate-400 dark:text-slate-500 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+                                            className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
                                             title={t('reset', lang)}
                                         >
                                             <RotateCcw size={18} />
@@ -294,7 +277,7 @@ export default function EditorPage() {
                       </div>
 
                       {/* PREVIEW */}
-                      <div className={`w-full md:w-2/3 bg-slate-800 dark:bg-slate-950 p-4 md:p-8 flex flex-col items-center overflow-hidden relative ${isMobile && mobileTab !== 'preview' ? 'hidden' : 'flex'}`}>
+                      <div className={`w-full md:w-2/3 bg-slate-800 p-4 md:p-8 flex-col items-center overflow-hidden relative ${isMobile && mobileTab !== 'preview' ? 'hidden' : 'flex'}`}>
                            
                            {/* Preview Header */}
                            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 z-10 shrink-0">

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, MousePointerClick, Loader2, Radio } from 'lucide-react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote, Radio, Filter, X } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction } from '../../types';
 import { t } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
@@ -21,6 +21,29 @@ interface ChatMessageListProps {
         timeLeft: string;
     };
 }
+
+const TAG_STYLES: Record<string, { icon: React.ReactNode, className: string, label?: string }> = {
+    '+1': { 
+        icon: <ThumbsUp size={10} />, 
+        className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400',
+        label: 'Ack' 
+    },
+    'white_check_mark': { 
+        icon: <Check size={10} />, 
+        className: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400',
+        label: 'Done'
+    },
+    'moneybag': { 
+        icon: <Banknote size={10} />, 
+        className: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400',
+        label: 'Paid'
+    },
+    'warning': { 
+        icon: <AlertTriangle size={10} />, 
+        className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400',
+        label: 'Issue'
+    }
+};
 
 const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action, isMe }) => {
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -73,7 +96,7 @@ const ActionButton: React.FC<{ action: NtfyAction, isMe: boolean }> = ({ action,
     const baseClasses = `text-[10px] font-bold px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 flex items-center gap-1.5`;
     const themeClasses = isMe
         ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
-        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700';
+        : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600';
 
     const stateClasses = 
         status === 'success' ? '!bg-green-500 !text-white !border-green-600' :
@@ -113,11 +136,24 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     deadline
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [filterPriority, setFilterPriority] = useState(false);
+    const [filterTag, setFilterTag] = useState('');
 
-    // Auto-scroll logic
+    const filteredMessages = useMemo(() => {
+        return messages.filter(msg => {
+            if (filterPriority && (!msg.priority || msg.priority < 4)) return false;
+            if (filterTag && !msg.tags?.some(t => t.toLowerCase().includes(filterTag.toLowerCase()))) return false;
+            return true;
+        });
+    }, [messages, filterPriority, filterTag]);
+
+    // Auto-scroll logic: Only scroll if no filter active or if forced
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages.length]);
+        if (!filterPriority && !filterTag) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages.length, filterPriority, filterTag]);
 
     // Read Receipts
     useEffect(() => {
@@ -141,7 +177,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         elements.forEach(el => observer.observe(el));
 
         return () => observer.disconnect();
-    }, [messages, onReadMessage]);
+    }, [filteredMessages, onReadMessage]);
 
     // Formatters
     const formatTime = (timestamp: number) => {
@@ -186,14 +222,14 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                 return (
                     <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300">
                         {deadline && deadline.hasDeadline && !deadline.isExpired && (
-                            <div className={`mb-2 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${deadline.isCritical ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' : 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800'}`}>
+                            <div className={`mb-2 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${deadline.isCritical ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' : 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'}`}>
                                 <Hourglass size={10} /> 
                                 {t('expires_in', lang)} {deadline.timeLeft}
                             </div>
                         )}
                         <div className="flex gap-2 md:gap-3">
                             <button onClick={onConfirm} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all"><ThumbsUp size={14} /> {t('btn_confirm', lang)}</button>
-                            <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
+                            <button onClick={onReject} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"><ThumbsDown size={14} /> {t('btn_reject', lang)}</button>
                         </div>
                     </div>
                 );
@@ -212,7 +248,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                 if (!onComplete) return null;
                 return (
                     <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300">
-                        <button onClick={onComplete} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
+                        <button onClick={onComplete} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
                             <Flag size={14} /> {t('btn_complete', lang)}
                         </button>
                     </div>
@@ -223,18 +259,63 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         }
     };
 
+    const hasActiveFilters = filterPriority || filterTag;
+
     return (
         <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 overscroll-contain relative">
             
-            {/* Empty State */}
-            {messages.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                    <p className="text-xs italic">No messages found.</p>
+            {/* Filter Toggle - Floating Top Right */}
+            <div className="sticky top-0 z-40 flex justify-end -mt-2 -mr-2 mb-2 pointer-events-none">
+                 <div className="pointer-events-auto">
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-2 rounded-full shadow-sm border transition-all ${hasActiveFilters ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'}`}
+                    >
+                        <Filter size={16} />
+                    </button>
+                 </div>
+            </div>
+
+            {/* Filter Panel */}
+            {showFilters && (
+                <div className="sticky top-10 z-40 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md mb-4 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                            <input 
+                                type="checkbox" 
+                                checked={filterPriority} 
+                                onChange={(e) => setFilterPriority(e.target.checked)}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            High Priority Only
+                        </label>
+                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                        <input 
+                            type="text" 
+                            placeholder="Filter by tag..." 
+                            className="flex-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 outline-none focus:border-blue-400 dark:focus:border-blue-600 text-slate-800 dark:text-slate-200"
+                            value={filterTag}
+                            onChange={(e) => setFilterTag(e.target.value)}
+                        />
+                        {hasActiveFilters && (
+                            <button onClick={() => { setFilterPriority(false); setFilterTag(''); }} className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
-            {messages.map((msg: ChatMessage, index: number) => {
-                const prevMsg = index > 0 ? messages[index - 1] : null;
+            {/* Empty State */}
+            {filteredMessages.length === 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                    <p className="text-xs italic">No messages found.</p>
+                    {hasActiveFilters && <button onClick={() => { setFilterPriority(false); setFilterTag(''); }} className="text-blue-500 dark:text-blue-400 text-xs font-bold mt-2 hover:underline">Clear Filters</button>}
+                </div>
+            )}
+
+            {filteredMessages.map((msg: ChatMessage, index: number) => {
+                const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
                 const isDifferentDay = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
                 const isHighPriority = msg.priority && msg.priority >= 4;
                 const isUrgent = msg.priority === 5;
@@ -252,25 +333,25 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         {msg.type === 'system' ? (
                             <div className="w-full flex flex-col items-center my-4 px-2 md:px-12">
                                 <div className="flex items-center w-full gap-3 mb-2">
-                                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                                    <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
                                     <div className="shrink-0">
                                         {msg.metadata?.status && STATUS_CONFIG[msg.metadata.status] ? (
                                             (() => {
                                                 const config = STATUS_CONFIG[msg.metadata.status!];
                                                 return (
-                                                    <div className={`px-4 py-1.5 rounded-2xl border shadow-sm flex items-center gap-2 bg-white dark:bg-slate-800 ${config.border} ${config.text}`}>
+                                                    <div className={`px-4 py-1.5 rounded-2xl border shadow-sm flex items-center gap-2 bg-white dark:bg-slate-900 ${config.border} ${config.text}`}>
                                                         {config.icon}
                                                         <span className="text-[10px] font-bold uppercase tracking-wider">{t(config.labelKey, lang)}</span>
                                                     </div>
                                                 );
                                             })()
                                         ) : (
-                                            <div className="px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+                                            <div className="px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
                                                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">System</span>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                                    <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
                                 </div>
 
                                 <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500 font-medium">
@@ -288,7 +369,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         ) : (
                             <div className={`message-wrapper flex gap-2 md:gap-3 max-w-[90%] md:max-w-[70%] ${msg.senderId === 'me' ? 'self-end flex-row-reverse' : 'self-start'}`} data-id={msg.id} data-status={msg.status} data-sender={msg.senderId}>
                                 {msg.senderId !== 'me' && (
-                                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 flex items-center justify-center text-[10px] md:text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm mt-auto overflow-hidden">
+                                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 flex items-center justify-center text-[10px] md:text-xs font-bold text-slate-600 dark:text-slate-400 shadow-sm mt-auto overflow-hidden">
                                         {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" /> : currentUser.name[0]}
                                     </div>
                                 )}
@@ -321,7 +402,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                                 className={`flex items-center gap-3 p-3 rounded-xl border mb-1 transition-all group ${
                                                     msg.senderId === 'me' 
                                                         ? 'bg-blue-600 border-blue-500 text-white' 
-                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
                                                 }`}
                                             >
                                                 <div className={`p-2 rounded-lg ${msg.senderId === 'me' ? 'bg-blue-500/50' : 'bg-slate-100 dark:bg-slate-700'}`}>
@@ -341,8 +422,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                         {msg.text && (
                                             <div className={`px-3 py-2 md:px-4 md:py-2.5 shadow-sm text-[13px] md:text-sm leading-relaxed relative ${
                                                 msg.senderId === 'me' 
-                                                    ? `bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-tr-sm shadow-blue-200/50 dark:shadow-none ${isUrgent ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`
-                                                    : `bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl rounded-tl-sm shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] ${isUrgent ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10' : ''}`
+                                                    ? `bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-tr-sm shadow-blue-200/50 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`
+                                                    : `bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] ${isUrgent ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10' : ''}`
                                             }`}>
                                                 {msg.text}
                                             </div>
@@ -356,8 +437,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                                 rel="noopener noreferrer"
                                                 className={`mt-1.5 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
                                                     msg.senderId === 'me'
-                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-200 dark:hover:bg-blue-900/50'
-                                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                                                 }`}
                                             >
                                                 <ExternalLink size={12} />
@@ -380,10 +461,32 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
                                     </div>
 
-                                    {/* METADATA ROW: Time */}
+                                    {/* METADATA ROW: Time + Tags */}
                                     <div className={`flex flex-wrap items-center gap-2 mt-0.5 px-1 ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}>
+                                        
+                                        {/* Visual Tags */}
+                                        {msg.tags && msg.tags.length > 0 && (
+                                            <div className="flex gap-1">
+                                                {msg.tags.filter(t => !t.startsWith('status:') && t !== 'system').map(tag => {
+                                                    const style = TAG_STYLES[tag];
+                                                    if (style) {
+                                                        return (
+                                                            <span key={tag} className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${style.className}`}>
+                                                                {style.icon} {style.label || tag}
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span key={tag} className="flex items-center gap-0.5 text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                                                            <Tag size={8} /> {tag}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
                                         <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-slate-400 dark:text-slate-500 font-medium select-none">
-                                            {msg.senderId === 'me' && msg.status === 'read' && <CheckCheck size={12} className="text-blue-500 dark:text-blue-400" />}
+                                            {msg.senderId === 'me' && msg.status === 'read' && <CheckCheck size={12} className="text-blue-500" />}
                                             {msg.senderId === 'me' && msg.status === 'sent' && <Check size={12} />}
                                             <span>{formatTime(msg.timestamp)}</span>
                                         </div>

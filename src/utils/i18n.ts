@@ -221,7 +221,7 @@ export type TranslationKey =
   | 'sched_no_vehicles'
   | 'sched_conflicts_detected';
 
-const dictionary: Record<Language, Record<TranslationKey, string>> = {
+const dictionary: any = {
   ru: {
     invoice_editor: 'Редактор счета',
     lease_editor: 'Редактор договора',

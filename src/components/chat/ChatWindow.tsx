@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Phone, Video, Send, Smile, Image as ImageIcon, ArrowLeft, MoreVertical, PanelRightClose, PanelRightOpen, 
-    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X
+    MessageSquare, FileText, Download, Loader2, Eye, Car, Check, Sparkles, X, PlusCircle, AlertTriangle, Banknote, ThumbsUp
 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
-import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE } from '../../types';
+import { ChatSession, LeaseData, Language, InvoiceData, INITIAL_INVOICE, NtfyAction } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useChatStore } from '../../stores/chatStore';
 import { t } from '../../utils/i18n';
@@ -35,9 +35,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [messageInput, setMessageInput] = useState('');
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [showTagSelector, setShowTagSelector] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
+    const tagSelectorRef = useRef<HTMLDivElement>(null);
     
     // Store Actions
     const { 
@@ -58,8 +61,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            const target = event.target as HTMLElement;
+            if (menuRef.current && !menuRef.current.contains(target)) {
                 setIsMenuOpen(false);
+            }
+            if (tagSelectorRef.current && !tagSelectorRef.current.contains(target)) {
+                setShowTagSelector(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -69,8 +76,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const handleSend = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!messageInput.trim()) return;
-        sendMessage(messageInput);
+        
+        const tags = selectedTag ? [selectedTag] : [];
+        const actions: NtfyAction[] = []; // Could add default view action here if needed
+
+        sendMessage(messageInput, tags, actions);
         setMessageInput('');
+        setSelectedTag(null);
+        setShowTagSelector(false);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,15 +183,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const statusConfig = STATUS_CONFIG[leaseData.status || 'pending'] || STATUS_CONFIG['pending'];
 
+    const REACTION_TAGS = [
+        { id: '+1', icon: <ThumbsUp size={16} />, label: 'Ack', color: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' },
+        { id: 'white_check_mark', icon: <Check size={16} />, label: 'Done', color: 'text-green-600 bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400' },
+        { id: 'moneybag', icon: <Banknote size={16} />, label: 'Paid', color: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400' },
+        { id: 'warning', icon: <AlertTriangle size={16} />, label: 'Issue', color: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400' },
+    ];
+
     return (
-        <div className="flex flex-col h-full bg-slate-50/30 dark:bg-slate-950/30 relative">
+        <div className="flex flex-col h-full bg-slate-50/30 relative">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
             {/* HEADER */}
             <div className="h-14 md:h-16 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm z-20">
                 <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     {isMobile && (
-                        <button onClick={onBack} className="-ml-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
+                        <button onClick={onBack} className="-ml-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 transition-colors">
                             <ArrowLeft size={20} />
                         </button>
                     )}
@@ -186,7 +206,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     {/* User Info */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="relative shrink-0">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700 overflow-hidden">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-700 overflow-hidden">
                                 {chat.user.avatar ? <img src={chat.user.avatar} alt={chat.user.name} className="w-full h-full object-cover" /> : chat.user.name[0]}
                             </div>
                             <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white dark:border-slate-900 rounded-full ${chat.user.status === 'online' ? 'bg-green-500' : 'bg-slate-300'} md:block hidden`}></div>
@@ -206,12 +226,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     </div>
                 </div>
 
-                <div className="flex gap-1 md:gap-2 text-slate-400 items-center shrink-0 relative">
+                <div className="flex gap-1 md:gap-2 text-slate-400 dark:text-slate-500 items-center shrink-0 relative">
                     {/* Preview Button (Chat Mode Only) */}
                     {activeTab === 'chat' && (
                         <button 
                             onClick={() => setActiveTab('lease')}
-                            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-bold transition-all"
+                            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-bold transition-all"
                             title={t('preview', lang)}
                         >
                             <Eye size={16} />
@@ -225,7 +245,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         disabled={isGeneratingPdf}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50 ${
                             activeTab === 'chat' 
-                                ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' 
+                                ? 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800' 
                                 : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50'
                         }`}
                         title={activeTab === 'invoice' ? t('btn_download_invoice', lang) : t('btn_download_lease', lang)}
@@ -237,10 +257,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <button className="hidden md:block p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><Phone size={18} /></button>
                     <button className="hidden md:block p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><Video size={18} /></button>
                     
-                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden xl:block"></div>
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden xl:block"></div>
                     <button 
                         onClick={onToggleSidebar}
-                        className={`p-2 rounded-full transition-colors hidden xl:block ${isSidebarOpen ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                        className={`p-2 rounded-full transition-colors hidden xl:block ${isSidebarOpen ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300'}`}
                         title="Toggle Context Panel"
                     >
                         {isSidebarOpen ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
@@ -250,7 +270,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div className="relative" ref={menuRef}>
                         <button 
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                         >
                             <MoreVertical size={18} />
                         </button>
@@ -260,21 +280,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <div className="p-1.5 space-y-0.5">
                                     <button 
                                         onClick={() => { setActiveTab('chat'); setIsMenuOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'chat' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'chat' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         <MessageSquare size={16} /> {t('switch_chat', lang)}
                                         {activeTab === 'chat' && <Check size={14} className="ml-auto" />}
                                     </button>
                                     <button 
                                         onClick={() => { setActiveTab('lease'); setIsMenuOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'lease' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'lease' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         <Car size={16} /> {t('switch_lease', lang)}
                                         {activeTab === 'lease' && <Check size={14} className="ml-auto" />}
                                     </button>
                                     <button 
                                         onClick={() => { setActiveTab('invoice'); setIsMenuOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'invoice' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'invoice' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         <FileText size={16} /> {t('switch_invoice', lang)}
                                         {activeTab === 'invoice' && <Check size={14} className="ml-auto" />}
@@ -283,19 +303,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <div className="border-t border-slate-100 dark:border-slate-700 p-1.5 space-y-0.5">
                                     <button 
                                         onClick={() => { handleDownloadPdf('lease'); setIsMenuOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg"
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg"
                                     >
                                         <Download size={14} /> {t('btn_download_lease', lang)}
                                     </button>
                                     <button 
                                         onClick={() => { handleDownloadPdf('invoice'); setIsMenuOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg"
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg"
                                     >
                                         <Download size={14} /> {t('btn_download_invoice', lang)}
                                     </button>
                                 </div>
                                 <div className="border-t border-slate-100 dark:border-slate-700 p-1.5">
-                                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg">
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg">
                                         <Phone size={16} /> {t('btn_call', lang)}
                                     </button>
                                 </div>
@@ -340,7 +360,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {/* LEASE VIEW */}
                 {activeTab === 'lease' && (
-                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 dark:bg-slate-900 p-4 flex justify-center">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 dark:bg-slate-950 p-4 flex justify-center">
                         <div className="w-full max-w-[210mm] origin-top bg-white shadow-lg min-h-[297mm]">
                             <LeasePreview data={leaseData} lang={lang} />
                         </div>
@@ -349,7 +369,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {/* INVOICE VIEW */}
                 {activeTab === 'invoice' && (
-                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 dark:bg-slate-900 p-4 flex justify-center">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 dark:bg-slate-950 p-4 flex justify-center">
                         <div className="w-full max-w-[210mm] origin-top bg-white shadow-lg min-h-[297mm]">
                             <InvoicePreview data={invoiceData} />
                         </div>
@@ -364,8 +384,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     
                     {/* SMART SUGGESTION */}
                     {aiSuggestion && (
-                        <div className="mb-3 mx-1 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-100 dark:border-purple-800 rounded-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-white/40 dark:bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        <div className="mb-3 mx-1 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 border border-purple-100 dark:border-purple-800 rounded-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-white/40 dark:bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                             <div className="p-2 bg-white dark:bg-slate-800 rounded-full text-purple-600 dark:text-purple-400 shadow-sm shrink-0">
                                 <Sparkles size={16} className="animate-pulse" />
                             </div>
@@ -382,7 +402,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 </button>
                                 <button 
                                     onClick={clearAiSuggestion}
-                                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700 rounded-full transition-colors"
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-black/20 rounded-full transition-colors"
                                 >
                                     <X size={14} />
                                 </button>
@@ -391,23 +411,61 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     )}
 
                     <div className="relative flex items-center gap-2">
+                        {/* TAG SELECTOR POPOVER */}
+                        {showTagSelector && (
+                            <div 
+                                ref={tagSelectorRef}
+                                className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 flex gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            >
+                                {REACTION_TAGS.map(tag => (
+                                    <button
+                                        key={tag.id}
+                                        onClick={() => { setSelectedTag(selectedTag === tag.id ? null : tag.id); setShowTagSelector(false); }}
+                                        className={`p-2 rounded-lg transition-all hover:scale-110 flex flex-col items-center gap-1 min-w-[50px]
+                                            ${selectedTag === tag.id ? tag.color : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}
+                                        `}
+                                    >
+                                        {tag.icon}
+                                        <span className="text-[9px] font-bold uppercase tracking-wider">{tag.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         <form className="relative flex items-center gap-2 flex-1" onSubmit={handleSend} autoComplete="off">
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors md:hidden">
+                            <button 
+                                type="button" 
+                                onClick={() => setShowTagSelector(!showTagSelector)} 
+                                className={`p-2.5 rounded-full transition-colors hidden md:block ${selectedTag ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            >
+                                <PlusCircle size={20} />
+                            </button>
+
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors md:hidden">
                                 <ImageIcon size={22} />
                             </button>
                             
                             <div className="flex-1 relative">
+                                {selectedTag && (
+                                    <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10">
+                                        <span className="flex items-center justify-center w-7 h-7 bg-purple-100 text-purple-600 rounded-full text-xs font-bold shadow-sm">
+                                            {REACTION_TAGS.find(t => t.id === selectedTag)?.icon}
+                                        </span>
+                                    </div>
+                                )}
                                 <input 
                                     type="text" 
                                     name="message"
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-300 dark:focus:border-blue-700 rounded-full py-2.5 md:py-3 px-4 md:px-5 pr-10 md:pr-12 text-base md:text-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30 text-slate-800 dark:text-white outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                                    className={`w-full bg-slate-50 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-300 dark:focus:border-blue-700 rounded-full py-2.5 md:py-3 pr-10 md:pr-12 text-base md:text-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/20 text-slate-800 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600
+                                        ${selectedTag ? 'pl-10' : 'pl-4 md:pl-5'}
+                                    `}
                                     placeholder={t('chat_type_message', lang)}
                                     value={messageInput}
                                     onChange={(e) => setMessageInput(e.target.value)}
                                 />
                             </div>
 
-                            <div className="absolute right-14 md:right-14 flex gap-2 text-slate-400 hidden md:flex">
+                            <div className="absolute right-14 md:right-14 flex gap-2 text-slate-400 dark:text-slate-500 hidden md:flex">
                                 <button type="button" onClick={() => fileInputRef.current?.click()} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1">
                                     <ImageIcon size={20} />
                                 </button>
