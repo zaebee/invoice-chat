@@ -1,10 +1,12 @@
 
 import React, { useState } from 'react';
-import { FileEdit, MapPin, User as UserIcon } from 'lucide-react';
+import { FileEdit, MapPin, User as UserIcon, Car, CalendarClock } from 'lucide-react';
 import { ChatSession, LeaseData, Language } from '../../types';
 import LeaseForm from '../forms/LeaseForm';
 import InputGroup from '../ui/InputGroup';
 import { t } from '../../utils/i18n';
+import { StatusBadge } from './StatusBadge';
+import { formatShortDate } from '../../utils/dateUtils';
 
 interface RightPanelProps {
     chat: ChatSession;
@@ -18,6 +20,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     chat, leaseData, lang, handlers, isOpen 
 }) => {
     const [sidebarTab, setSidebarTab] = useState<'profile' | 'details' | 'map'>('details');
+    const { vehicle, status, pickup, dropoff, pricing } = leaseData;
 
     return (
         <div className={`bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800 hidden xl:flex flex-col h-full shadow-lg z-20 transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? 'w-[360px] opacity-100' : 'w-0 opacity-0 border-none'}`}>
@@ -41,6 +44,61 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {sidebarTab === 'details' && (
                         <div className="p-4 bg-white dark:bg-slate-900 min-h-full">
+                            {/* CONTEXT DASHBOARD CARD */}
+                            <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 mb-6 shadow-sm">
+                                {/* Vehicle Header */}
+                                <div className="flex items-start justify-between mb-4">
+                                     <div className="flex items-center gap-3">
+                                         <div className="w-12 h-12 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 flex items-center justify-center overflow-hidden shadow-sm">
+                                             {vehicle.imageUrl ? (
+                                                <img src={vehicle.imageUrl} alt={vehicle.name} className="w-full h-full object-cover" />
+                                             ) : (
+                                                <Car className="text-slate-300 dark:text-slate-500" size={24} />
+                                             )}
+                                         </div>
+                                         <div>
+                                             <div className="font-bold text-sm text-slate-900 dark:text-white leading-tight">{vehicle.name}</div>
+                                             <div className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-slate-900/50 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 w-fit mt-1">{vehicle.plate}</div>
+                                         </div>
+                                     </div>
+                                     <div className="scale-90 origin-top-right">
+                                        <StatusBadge status={status || 'pending'} lang={lang} />
+                                     </div>
+                                </div>
+
+                                {/* Dates Timeline */}
+                                <div className="flex justify-between items-center text-xs mb-4 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                    <div className="text-center min-w-[80px]">
+                                        <div className="text-slate-400 dark:text-slate-500 text-[9px] uppercase font-bold mb-1 tracking-wide">{t('grp_pickup', lang)}</div>
+                                        <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">{formatShortDate(pickup.date, lang)}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium">{pickup.time}</div>
+                                    </div>
+                                    <div className="text-slate-300 dark:text-slate-600 flex flex-col items-center">
+                                        <span className="text-[10px] font-bold text-slate-400 mb-1">{leaseData.pricing.daysRegular + leaseData.pricing.daysSeason}d</span>
+                                        <div className="w-16 h-0.5 bg-slate-200 dark:bg-slate-700 rounded-full relative">
+                                            <div className="absolute right-0 -top-1 w-2 h-2 border-t-2 border-r-2 border-slate-200 dark:border-slate-700 rotate-45"></div>
+                                        </div>
+                                    </div>
+                                    <div className="text-center min-w-[80px]">
+                                        <div className="text-slate-400 dark:text-slate-500 text-[9px] uppercase font-bold mb-1 tracking-wide">{t('grp_return', lang)}</div>
+                                        <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">{formatShortDate(dropoff.date, lang)}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium">{dropoff.time}</div>
+                                    </div>
+                                </div>
+
+                                {/* Financials */}
+                                <div className="flex justify-between items-end border-t border-slate-200 dark:border-slate-700 pt-3">
+                                    <div>
+                                        <div className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wide mb-0.5">{t('lbl_deposit', lang)}</div>
+                                        <div className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-md">{pricing.deposit.toLocaleString()} {pricing.currency}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wide mb-0.5">{t('lbl_total_paid', lang)}</div>
+                                        <div className="font-mono text-xl font-bold text-blue-600 dark:text-blue-400 leading-none tracking-tight">{pricing.total.toLocaleString()} <span className="text-sm font-normal text-slate-400">{pricing.currency}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <LeaseForm data={leaseData} handlers={handlers} lang={lang} compact={true} />
                         </div>
                     )}

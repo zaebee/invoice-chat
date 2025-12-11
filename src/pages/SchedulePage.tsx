@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../stores/chatStore';
 import { Language, ChatSession } from '../types';
 import { t } from '../utils/i18n';
-import { Car, AlertTriangle, ChevronLeft, ChevronRight, CalendarDays, MapPin } from 'lucide-react';
+import { Car, AlertTriangle, ChevronLeft, ChevronRight, CalendarDays, MapPin, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { STATUS_CONFIG } from '../components/chat/ChatUtils';
 import { useNavigate } from 'react-router-dom';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
@@ -209,6 +209,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     const [startDate, setStartDate] = useState(new Date());
     const [hoveredSession, setHoveredSession] = useState<string | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     
     // Draggable Scroll Hook
     const { scrollContainerRef, onMouseDown, isDragging, hasMoved } = useDraggableScroll<HTMLDivElement>();
@@ -240,6 +241,8 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
         d.setDate(d.getDate() + days);
         setStartDate(d);
     };
+
+    const sidebarWidthClass = isSidebarCollapsed ? 'w-20' : 'w-60 md:w-72';
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-200">
@@ -276,9 +279,21 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                     {/* A. Sticky Header Row (Z-50) */}
                     <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-50 shadow-sm will-change-transform">
                         {/* Top-Left Corner (Freeze Pane Intersection) (Z-60) */}
-                        <div className="w-60 md:w-72 shrink-0 p-3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-[60] font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                            <span>{t('grp_vehicle', lang)}</span>
-                            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{vehicleGroups.length}</span>
+                        <div className={`${sidebarWidthClass} shrink-0 p-3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-[60] font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky left-0 flex items-center justify-between shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out`}>
+                            {!isSidebarCollapsed && <span>{t('grp_vehicle', lang)}</span>}
+                            
+                            <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'w-full justify-center' : ''}`}>
+                                {!isSidebarCollapsed && (
+                                    <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{vehicleGroups.length}</span>
+                                )}
+                                <button 
+                                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-500 dark:text-slate-400 transition-colors"
+                                    title={isSidebarCollapsed ? "Expand List" : "Collapse List"}
+                                >
+                                    {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+                                </button>
+                            </div>
                         </div>
                         
                         {/* Date Columns */}
@@ -316,22 +331,33 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 style={{ height: group.rowHeight }}
                             >
                                 {/* Sticky Vehicle Name (Left Column) (Z-40) */}
-                                <div className="w-60 md:w-72 shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-40 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm">
+                                <div className={`${sidebarWidthClass} shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-40 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out`}>
+                                    <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center flex-col gap-1' : 'gap-3'}`}>
+                                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm" title={group.name}>
                                             <Car size={20} />
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate leading-tight mb-1" title={group.name}>{group.name}</div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">{group.plate}</span>
-                                                {group.laneCount > 1 && (
-                                                    <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded font-medium border border-orange-100 dark:border-orange-900/30">
-                                                        <AlertTriangle size={10} /> {group.laneCount}
-                                                    </span>
-                                                )}
+                                        
+                                        {!isSidebarCollapsed ? (
+                                            <div className="min-w-0 flex-1 animate-in fade-in duration-300">
+                                                <div className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate leading-tight mb-1" title={group.name}>{group.name}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">{group.plate}</span>
+                                                    {group.laneCount > 1 && (
+                                                        <span className="text-[10px] text-orange-500 flex items-center gap-0.5 bg-orange-50 dark:bg-orange-900/20 px-1.5 py-0.5 rounded font-medium border border-orange-100 dark:border-orange-900/30">
+                                                            <AlertTriangle size={10} /> {group.laneCount}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            group.laneCount > 1 && (
+                                                <div className="flex justify-center animate-in fade-in duration-300">
+                                                    <span className="text-[9px] text-orange-500 font-bold flex items-center gap-0.5 bg-orange-50 dark:bg-orange-900/20 px-1 py-0.5 rounded-full border border-orange-100 dark:border-orange-900/30">
+                                                        <AlertTriangle size={8} /> {group.laneCount}
+                                                    </span>
+                                                </div>
+                                            )
+                                        )}
                                     </div>
                                 </div>
 
