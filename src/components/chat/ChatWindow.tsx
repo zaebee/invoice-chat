@@ -195,7 +195,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
             {/* HEADER */}
-            <div className="h-14 md:h-16 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm z-20">
+            <div className="h-14 md:h-16 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm z-50">
                 <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     {isMobile && (
                         <button onClick={onBack} className="-ml-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 transition-colors">
