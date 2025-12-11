@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Eraser, Check } from 'lucide-react';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -112,18 +111,17 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">{label}</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">{label}</label>
                 {value && (
-                    <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center gap-1 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-green-600 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded-full">
                         <Check size={12} /> {savedLabel}
                     </span>
                 )}
             </div>
             
-            <div className="relative border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 overflow-hidden touch-none">
-                {/* Canvas keeps white background to simulate paper signature context */}
+            <div className="relative border border-slate-200 rounded-lg bg-slate-50 overflow-hidden touch-none">
                 <canvas
                     ref={canvasRef}
                     width={isMobile ? 300 : 400}
@@ -147,7 +145,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
             <div className="flex justify-between mt-2">
                 <button 
                     onClick={clear}
-                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 py-1 px-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 py-1 px-2 rounded hover:bg-red-50 transition-colors"
                 >
                     <Eraser size={14} /> {clearLabel}
                 </button>

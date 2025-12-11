@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
-import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Share2, MessageCircle, CalendarDays } from 'lucide-react';
-import { Link, useParams, useLocation } from 'react-router-dom';
+import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Globe, Share2, MessageCircle } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
 
 import InvoicePreview from '../components/InvoicePreview';
 import LeasePreview from '../components/LeasePreview';
@@ -13,7 +12,6 @@ import LeaseForm from '../components/forms/LeaseForm';
 import { LoginModal } from '../components/modals/LoginModal';
 import { AiModal } from '../components/modals/AiModal';
 import { ChatLayout } from '../components/chat/ChatLayout';
-import SchedulePage from './SchedulePage';
 
 import { useInvoice } from '../hooks/useInvoice';
 import { useLease } from '../hooks/useLease';
@@ -24,16 +22,13 @@ import { useChatStore } from '../stores/chatStore';
 import { InvoiceData, LeaseData } from '../types';
 import { t } from '../utils/i18n';
 import { BrandLogo } from '../components/ui/BrandLogo';
-import { LanguageSelector } from '../components/ui/LanguageSelector';
 
-type DocType = 'invoice' | 'lease' | 'chat' | 'schedule';
+type DocType = 'invoice' | 'lease' | 'chat';
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
-  const location = useLocation();
   const [docType, setDocType] = useState<DocType>('chat');
   
-  // Use persistent language hook
   const { lang, setLang } = useLanguage('en');
   
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -54,20 +49,16 @@ export default function EditorPage() {
 
   // Route Handling
   useEffect(() => {
-    if (location.pathname.includes('/schedule')) {
-        setDocType('schedule');
-    } else if (id) {
+    if (id) {
         setDocType('chat');
         chatStore.loadChatSession(id);
-    } else {
-        setDocType('chat');
     }
     
     // Cleanup: Disconnect chat when component unmounts or ID changes
     return () => {
         chatStore.disconnect();
     };
-  }, [id, location.pathname]);
+  }, [id]);
 
   // Sync Lease Editor with Active Chat Session
   useEffect(() => {
@@ -78,7 +69,7 @@ export default function EditorPage() {
   }, [chatStore.leaseContext]);
 
   const handleSmartImport = async () => {
-    const result = await ai.parse(docType === 'chat' || docType === 'schedule' ? 'lease' : docType); // Fallback for chat/schedule
+    const result = await ai.parse(docType === 'chat' ? 'lease' : docType); // Fallback for chat
     if (!result) return;
 
     if (docType === 'invoice') {
@@ -128,6 +119,10 @@ export default function EditorPage() {
     }
   };
 
+  const toggleLang = () => {
+      setLang(prev => prev === 'ru' ? 'en' : 'ru');
+  };
+
   const getLeasePreviewLink = () => {
       let link = `/preview/lease/${lease.data.reservationId}`;
       if (lease.data.contractTemplateId) {
@@ -137,31 +132,24 @@ export default function EditorPage() {
   };
 
   const NavPills = () => (
-     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+     <div className="flex bg-slate-100 p-1 rounded-xl">
         <Link 
             to="/"
             onClick={() => setDocType('chat')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'chat' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'chat' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
             <MessageCircle size={16} /> {t('switch_chat', lang)}
         </Link>
-        <Link 
-            to="/schedule"
-            onClick={() => setDocType('schedule')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'schedule' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-        >
-            <CalendarDays size={16} /> {t('switch_schedule', lang)}
-        </Link>
         <button 
             onClick={() => setDocType('lease')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'lease' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'lease' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
             <Car size={16} /> {t('switch_lease', lang)}
         </button>
         {showInvoiceTab && (
          <button 
             onClick={() => setDocType('invoice')} 
-            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'invoice' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${docType === 'invoice' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
             <FileText size={16} /> {t('switch_invoice', lang)}
         </button>
@@ -170,25 +158,22 @@ export default function EditorPage() {
   );
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-900 flex flex-col font-sans overflow-hidden text-slate-900 dark:text-slate-100">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
         
         {/* UNIFIED APP HEADER */}
-        {/* Z-Index raised to 100 to ensure dropdowns overlap sticky scheduler headers (z-50) */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 md:px-6 shrink-0 z-[100] relative shadow-sm">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-30 shadow-sm">
              {/* Left: Logo + AI + Nav (Desktop) */}
              <div className="flex items-center gap-4 md:gap-6">
-                 <Link to="/"><BrandLogo className="text-slate-800 dark:text-white h-6" /></Link>
+                 <Link to="/"><BrandLogo className="text-slate-800 h-6" /></Link>
                  
                  <button 
                     onClick={ai.open}
-                    className="flex items-center gap-2 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 font-bold tracking-wide"
+                    className="flex items-center gap-2 text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 font-bold tracking-wide"
                 >
                     <Wand2 size={14} /> AI
                 </button>
 
                  <div className="hidden md:block">
-                     {/* Hide global nav if in chat mode, assuming local nav takes over */}
-                     {/* UPDATE: Always show NavPills to allow switching back from specific views */}
                      <NavPills />
                  </div>
              </div>
@@ -196,13 +181,19 @@ export default function EditorPage() {
              {/* Right: Actions */}
              <div className="flex items-center gap-3">
                  {/* Mobile Nav Icons (Simple) */}
-                 <div className="md:hidden flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                    <Link to="/" onClick={() => setDocType('chat')} className={`p-2 rounded-md ${docType === 'chat' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><MessageCircle size={18} /></Link>
-                    <Link to="/schedule" onClick={() => setDocType('schedule')} className={`p-2 rounded-md ${docType === 'schedule' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><CalendarDays size={18} /></Link>
-                    <button onClick={() => setDocType('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}><Car size={18} /></button>
+                 <div className="md:hidden flex gap-1 bg-slate-100 p-1 rounded-lg">
+                    <Link to="/" onClick={() => setDocType('chat')} className={`p-2 rounded-md ${docType === 'chat' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><MessageCircle size={18} /></Link>
+                    <button onClick={() => setDocType('lease')} className={`p-2 rounded-md ${docType === 'lease' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><Car size={18} /></button>
                  </div>
 
-                 <LanguageSelector currentLang={lang} onLanguageChange={setLang} />
+                 <button
+                    onClick={toggleLang}
+                    className="text-slate-400 hover:text-blue-500 transition-colors p-2 rounded-full hover:bg-slate-100 flex items-center gap-1"
+                    title="Switch Language"
+                >
+                    <Globe size={20} />
+                    <span className="text-xs font-bold uppercase">{lang}</span>
+                </button>
              </div>
         </header>
 
@@ -215,28 +206,22 @@ export default function EditorPage() {
                         <ChatLayout leaseData={lease.data} lang={lang} leaseHandlers={lease} />
                      </div>
                  </div>
-            ) : docType === 'schedule' ? (
-                <div className="w-full h-full p-0 md:p-6 overflow-hidden">
-                    <div className="h-full max-w-[1600px] mx-auto bg-white dark:bg-slate-900 md:rounded-xl md:border border-slate-200 dark:border-slate-800 md:shadow-sm overflow-hidden">
-                       <SchedulePage lang={lang} />
-                    </div>
-                </div>
             ) : (
                  /* EDITOR SPLIT VIEW */
                  <div className="w-full h-full flex flex-col md:flex-row relative">
                       
                       {/* Mobile Tabs for Editor/Preview */}
                       {isMobile && (
-                        <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex shadow-sm">
+                        <div className="sticky top-0 z-20 bg-white border-b border-slate-200 flex shadow-sm">
                             <button 
                                 onClick={() => setMobileTab('edit')}
-                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'edit' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400'}`}
+                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'edit' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-400'}`}
                             >
                                 {t('mobile_editor_tab', lang)}
                             </button>
                             <button 
                                 onClick={() => setMobileTab('preview')}
-                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'preview' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-400'}`}
+                                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${mobileTab === 'preview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-400'}`}
                             >
                                 {t('mobile_preview_tab', lang)}
                             </button>
@@ -244,18 +229,18 @@ export default function EditorPage() {
                       )}
 
                       {/* SIDEBAR (Form) */}
-                      <div className={`w-full md:w-1/3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-full flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 ${isMobile && mobileTab !== 'edit' ? 'hidden' : 'flex'}`}>
+                      <div className={`w-full md:w-1/3 bg-white border-r border-slate-200 h-full flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 ${isMobile && mobileTab !== 'edit' ? 'hidden' : 'flex'}`}>
                            <div className="p-4 md:p-8 overflow-y-auto h-full custom-scrollbar">
                                {/* Title & Reset */}
                                <div className="flex justify-between items-center mb-8">
-                                   <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+                                   <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
                                        {docType === 'invoice' ? t('invoice_editor', lang) : t('lease_editor', lang)}
                                    </h2>
                                    
                                    {docType === 'invoice' && (
                                         <button 
                                             onClick={invoice.reset} 
-                                            className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+                                            className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-slate-50"
                                             title={t('reset', lang)}
                                         >
                                             <RotateCcw size={18} />

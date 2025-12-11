@@ -26,7 +26,7 @@ const InputGroup: React.FC<InputGroupProps> = ({
   required = false
 }) => (
   <div className={`mb-4 ${className}`}>
-    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5 ml-1 tracking-wider">
+    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5 ml-1 tracking-wider">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     <div className="relative flex items-center group">
@@ -40,15 +40,15 @@ const InputGroup: React.FC<InputGroupProps> = ({
         // Reduced padding and rounded-lg for a more professional, compact look.
         className={`w-full px-3 py-2.5 border rounded-lg text-base md:text-sm outline-none transition-all duration-200
           ${readOnly 
-            ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed shadow-none' 
-            : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 placeholder-slate-400 dark:placeholder-slate-600 focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 hover:border-slate-400 dark:hover:border-slate-600 shadow-sm'
+            ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed shadow-none' 
+            : 'bg-white text-slate-900 border-slate-300 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 hover:border-slate-400 shadow-sm'
           }
         `}
       />
       {children}
     </div>
     {helperText && (
-      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 ml-1 leading-tight">
+      <p className="text-[10px] text-slate-400 mt-1 ml-1 leading-tight">
         {helperText}
       </p>
     )}
