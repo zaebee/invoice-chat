@@ -1,6 +1,4 @@
-
-
-import { LeaseData, INITIAL_LEASE, LeaseStatus } from "../types";
+import { LeaseData, INITIAL_LEASE, LeaseStatus, NtfyAction } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
 
@@ -12,7 +10,7 @@ const API_V1_ROOT = BASE_RESERVATION_URL.replace(/\/reservation\/?$/, '');
 const INVOICE_ENDPOINT = `${API_V1_ROOT}/finance/invoice`;
 const OWNER_PROFILE_ENDPOINT = `${API_V1_ROOT}/rider/owner`;
 const CHAT_BASE_URL = 'https://stage.ownima.com'; // Dedicated Chat/Ntfy domain
-const ASSET_BASE_URL = 'https://stage.ownima.com';
+const AVATAR_BASE_URL = 'https://stage.ownima.com';
 
 interface OwnerProfile {
     id: string;
@@ -68,6 +66,26 @@ const mapApiStatus = (rawStatus: string | undefined): LeaseStatus => {
     return 'pending';
 };
 
+// Helper to safely combine date and time into a valid ISO string
+const combineDateTime = (dateIso: string | undefined, timeStr: string | undefined): string | undefined => {
+    if (!dateIso) return undefined;
+    if (!timeStr) return dateIso;
+    
+    // If timeStr is already full ISO (contains T), prefer it
+    if (timeStr.includes('T')) return timeStr;
+
+    // Extract YYYY-MM-DD from the dateIso
+    const datePart = dateIso.split('T')[0];
+    
+    // Check if timeStr is a valid time format (HH:MM or HH:MM:SS)
+    // Simple validation: contains colon
+    if (timeStr.includes(':')) {
+        return `${datePart}T${timeStr}`;
+    }
+
+    return dateIso;
+};
+
 const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): Partial<LeaseData> => {
     try {
         const r = json.reservation;
@@ -96,7 +114,7 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         if (v.picture) {
             const path = v.picture.cover_previews?.s || v.picture.cover;
             if (path) {
-                vehicleImageUrl = `${ASSET_BASE_URL}${path}`;
+                vehicleImageUrl = `${AVATAR_BASE_URL}${path}`;
             }
         }
 
@@ -142,7 +160,11 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
 
         // Avatar Mapping
         const avatarPath = rider.avatar;
-        const avatarUrl = avatarPath ? `${ASSET_BASE_URL}${avatarPath}` : undefined;
+        const avatarUrl = avatarPath ? `${AVATAR_BASE_URL}${avatarPath}` : undefined;
+
+        // Exact Times for Scheduler (Prefer TimeRange start/end combined with date, fallback to reservation date_from/to)
+        const exactPickupDate = combineDateTime(r.date_from, p.collect_time?.start);
+        const exactDropoffDate = combineDateTime(r.date_to, d.return_time?.end);
 
         return {
             id: r.id, // Store real UUID for API calls
@@ -167,6 +189,9 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
                 time: dropoffTime,
                 fee: dropoffFee
             },
+            // Add exact times for scheduler
+            exactPickupDate,
+            exactDropoffDate,
             pricing: {
                 daysRegular: i.prices?.regular_price_days || 0,
                 priceRegular: i.prices?.regular_price_total || 0,
@@ -228,57 +253,6 @@ const fetchOwnerProfile = async (ownerId: string, signal?: AbortSignal): Promise
     }
 };
 
-// --- MOCK GENERATOR FOR OFFLINE MODE ---
-const getMockLease = (id: string): Partial<LeaseData> => ({
-    id,
-    reservationId: id,
-    status: 'pending',
-    source: 'OFFLINE_DEMO',
-    createdDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    deadline: Date.now() + 7200000, // +2 hours for mock testing
-    vehicle: { name: 'Demo BMW X1', details: 'SUV • Automatic', plate: 'DEMO-01' },
-    pickup: { date: new Date().toISOString().split('T')[0], time: '10:00', fee: 0 },
-    dropoff: { date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0], time: '10:00', fee: 0 },
-    pricing: { total: 4500, currency: 'THB', deposit: 5000, daysRegular: 3, priceRegular: 4500, daysSeason: 0, priceSeason: 0 },
-    renter: { surname: 'John Doe', contact: '+123456789', passport: 'AB123456' },
-    owner: { surname: 'Ownima Rentals', contact: 'rentals@ownima.com', address: '123 Beach Rd, Phuket' },
-    extraOptions: [{ name: 'Baby Seat', price: 300 }]
-});
-
-const getMockHistory = (): HistoryEvent[] => [
-    {
-        confirmation_date: new Date(Date.now() - 172800000).toISOString(),
-        status: 'status_pending',
-        confirmation_note: 'Reservation created via Web'
-    },
-    {
-        confirmation_date: new Date(Date.now() - 86400000).toISOString(),
-        status: 'status_confirmation_owner',
-        confirmation_note: 'Pending Owner Confirmation'
-    }
-];
-
-const getMockMessages = (topicId: string) => [
-    {
-        id: 'mock-1',
-        time: Math.floor(Date.now() / 1000) - 86400,
-        event: 'message',
-        topic: topicId,
-        message: 'Hello! Is this vehicle available for my dates?',
-        title: 'Renter',
-        tags: []
-    },
-    {
-        id: 'mock-2',
-        time: Math.floor(Date.now() / 1000) - 82000,
-        event: 'message',
-        topic: topicId,
-        message: 'Yes, it is ready. Please proceed with the deposit.',
-        title: 'Me',
-        tags: []
-    }
-];
-
 export const fetchReservation = async (id: string, signal?: AbortSignal): Promise<Partial<LeaseData> | null> => {
     try {
         const response = await fetch(`${BASE_RESERVATION_URL}/${id}`, {
@@ -291,6 +265,8 @@ export const fetchReservation = async (id: string, signal?: AbortSignal): Promis
         }
 
         if (!response.ok) {
+            // Check for 404 specifically
+            if (response.status === 404) return null;
             throw new Error(`API Error: ${response.status}`);
         }
 
@@ -312,10 +288,8 @@ export const fetchReservation = async (id: string, signal?: AbortSignal): Promis
 
     } catch (error: any) {
         if (error.name === 'AbortError') throw error;
-
-        // Fallback for network errors (Failed to fetch) allows the app to work offline/demo
-        console.warn(`Fetch Reservation failed (${error.message}). Using mock data.`);
-        return getMockLease(id);
+        // Propagate error to let the UI handle "Offline" vs "Not Found" logic
+        throw error;
     }
 };
 
@@ -328,7 +302,6 @@ export const loadLeaseData = async (id: string, signal?: AbortSignal): Promise<L
     const apiData = await fetchReservation(id, signal);
     
     if (!apiData) {
-        // If fetchReservation returned null (rare with mock fallback, but possible if explicitly null)
         throw new Error("Reservation not found");
     }
 
@@ -442,8 +415,7 @@ export const fetchReservationHistory = async (id: string, signal?: AbortSignal):
         return [];
     } catch (e: any) {
         if (e.name === 'AbortError') throw e;
-        console.warn("History fetch failed, returning mock data.");
-        return getMockHistory();
+        return [];
     }
 };
 
@@ -462,19 +434,33 @@ export const fetchNtfyMessages = async (topicId: string, signal?: AbortSignal) =
             .filter((msg: any) => msg && msg.event === 'message'); // Filter for chat messages only
     } catch (e: any) {
         if (e.name === 'AbortError') throw e;
-        console.warn("Chat fetch failed, returning mock data.");
-        // Return a friendly mock message so chat isn't dead
-        return getMockMessages(topicId);
+        // Return empty array instead of fake data on error
+        return [];
     }
 };
 
-export const sendNtfyMessage = async (topicId: string, message: string) => {
+interface SendNtfyOptions {
+    tags?: string[];
+    priority?: number;
+    actions?: NtfyAction[];
+}
+
+export const sendNtfyMessage = async (topicId: string, message: string, options?: SendNtfyOptions) => {
     try {
+        // Use JSON payload for rich messages (tags, actions)
+        // Sending to specific topic URL: /chat-<uuid>
+        const payload = {
+            message: message,
+            tags: options?.tags,
+            priority: options?.priority,
+            actions: options?.actions
+        };
+
         await fetch(`${CHAT_BASE_URL}/chat-${topicId}`, {
             method: 'POST',
-            body: message,
+            body: JSON.stringify(payload),
             headers: {
-                'Priority': 'low'
+                'Content-Type': 'application/json'
             }
         });
     } catch (e) {
@@ -494,6 +480,13 @@ export const sendNtfyImage = async (topicId: string, file: File) => {
     } catch (e) {
         console.error("Send image error", e);
     }
+};
+
+// Generates a multi-topic SSE URL for global listening
+export const getGlobalChatSseUrl = (topicIds: string[]) => {
+    // Prefix each ID with 'chat-'
+    const topics = topicIds.map(id => `chat-${id}`).join(',');
+    return `${CHAT_BASE_URL}/${topics}/sse`;
 };
 
 export const getChatSseUrl = (topicId: string) => `${CHAT_BASE_URL}/chat-${topicId}/sse`;

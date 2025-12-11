@@ -1,10 +1,9 @@
-
-
 import { create } from 'zustand';
-import { ChatSession, ChatMessage, LeaseData } from '../types';
-import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getChatSseUrl } from '../services/ownimaApi';
+import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
+import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
 import { dbService } from '../services/dbService';
 import { ntfyToChatMessage, historyToChatMessage } from '../services/chatMappers';
+import { analyzeChatIntent } from '../services/geminiService';
 
 // --- STORE DEFINITION ---
 
@@ -15,22 +14,35 @@ interface ChatState {
     isLoading: boolean;
     error: string | null;
     leaseContext: LeaseData | null; // Store the lease data associated with current chat
-    activeEventSource: EventSource | null; // Track active SSE connection
+    globalEventSource: EventSource | null; // SINGLE Global SSE connection
     currentLoadToken: number; // To prevent race conditions
     abortController: AbortController | null; // To cancel pending fetch requests
     
+    // Reconnection State
+    reconnectTimeoutId: number | null;
+    retryCount: number;
+
+    // AI Suggestions
+    aiSuggestion: { action: 'confirm' | 'reject' | 'collect' | 'complete'; reason: string } | null;
+    
     // Actions
     hydrate: () => Promise<void>;
+    connectGlobalListener: () => void; // New Action
+    createLocalSession: (customId: string) => Promise<void>;
     loadChatSession: (reservationId: string) => Promise<void>;
+    analyzeIntent: () => Promise<void>;
     setActiveSession: (id: string) => void;
-    sendMessage: (text: string) => Promise<void>;
+    sendMessage: (text: string, tags?: string[], actions?: NtfyAction[]) => Promise<void>;
     sendImage: (file: File) => Promise<void>;
     getActiveSession: () => ChatSession | undefined;
     confirmReservation: () => Promise<void>;
     rejectReservation: () => Promise<void>;
+    collectReservation: () => Promise<void>;
+    completeReservation: () => Promise<void>;
     markAsRead: (sessionId: string) => void;
     markAsUnread: (sessionId: string) => void;
     markMessageAsRead: (sessionId: string, messageId: string) => void;
+    clearAiSuggestion: () => void;
     setupBackgroundSync: () => void;
     archiveSession: (sessionId: string) => void;
     deleteSession: (sessionId: string) => Promise<void>;
@@ -44,9 +56,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     isLoading: false,
     error: null,
     leaseContext: null,
-    activeEventSource: null,
+    globalEventSource: null,
     currentLoadToken: 0,
     abortController: null,
+    aiSuggestion: null,
+    
+    reconnectTimeoutId: null,
+    retryCount: 0,
 
     hydrate: async () => {
         if (get().isHydrated) return;
@@ -57,118 +73,297 @@ export const useChatStore = create<ChatState>((set, get) => ({
         try {
             const storedSessions = await dbService.getAllSessions();
             set({ sessions: storedSessions, isHydrated: true });
+            
+            // Connect global listener after loading stored sessions
+            get().connectGlobalListener();
         } catch (e) {
             console.error("Hydration failed", e);
-            set({ isHydrated: true }); // Mark as hydrated anyway so we don't block
+            set({ isHydrated: true });
+        }
+    },
+
+    // Manages the SINGLE global SSE connection for ALL chats
+    connectGlobalListener: () => {
+        const { sessions, globalEventSource, reconnectTimeoutId } = get();
+        
+        // 1. Cleanup existing connection and pending retries
+        if (globalEventSource) {
+            globalEventSource.close();
+        }
+        if (reconnectTimeoutId) {
+            clearTimeout(reconnectTimeoutId);
+            set({ reconnectTimeoutId: null });
+        }
+
+        // 2. Identify topics (exclude archived or old?)
+        // For now, subscribe to all local sessions to ensure updates
+        if (sessions.length === 0) return;
+
+        // Limit to 40 most recent to prevent URL overflow, though Ntfy handles long URLs reasonably well
+        const recentSessions = [...sessions]
+            .sort((a, b) => b.lastMessageTime - a.lastMessageTime)
+            .slice(0, 40);
+            
+        const topicIds = recentSessions.map(s => s.id);
+        
+        if (topicIds.length === 0) return;
+
+        try {
+            const sseUrl = getGlobalChatSseUrl(topicIds);
+            const currentRetry = get().retryCount;
+            console.debug(`Connecting Global SSE for ${topicIds.length} topics. Attempt ${currentRetry + 1}`);
+            
+            const eventSource = new EventSource(sseUrl);
+
+            eventSource.onopen = () => {
+                console.debug("Global SSE Connected");
+                // Reset retry count on successful connection
+                set({ retryCount: 0, globalEventSource: eventSource });
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const ntfyMsg = JSON.parse(event.data);
+                    if (ntfyMsg.event !== 'message') return;
+
+                    // Ntfy returns the topic name (e.g. 'chat-123')
+                    // We need to strip 'chat-' to get our session ID
+                    const rawTopic = ntfyMsg.topic;
+                    const sessionId = rawTopic.replace(/^chat-/, '');
+
+                    // Determine if this is the active session
+                    const isActive = get().activeSessionId === sessionId;
+                    
+                    // Mark as 'sent' (unread) by default, unless active (UI might mark read via Observer)
+                    const status = 'sent';
+
+                    const chatMsg = ntfyToChatMessage(ntfyMsg, status);
+
+                    set(state => {
+                        const sessionIndex = state.sessions.findIndex(s => s.id === sessionId);
+                        
+                        // If we received a message for a session we don't have locally, 
+                        // we technically should fetch it, but for now ignore or create placeholder
+                        if (sessionIndex === -1) return {};
+
+                        const session = state.sessions[sessionIndex];
+                        // Deduplicate
+                        if (session.messages.some(m => m.id === chatMsg.id)) return {};
+
+                        const updatedMessages = [...session.messages, chatMsg];
+                        
+                        const isIncoming = chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system';
+                        
+                        // Increment unread count only if incoming message
+                        // If user is active on this chat, the IntersectionObserver in UI will mark it read instantly
+                        // But for store state, we increment first.
+                        const newUnreadCount = isIncoming ? (session.unreadCount || 0) + 1 : (session.unreadCount || 0);
+
+                        const updatedSession = {
+                            ...session,
+                            messages: updatedMessages,
+                            lastMessage: chatMsg.type === 'image' ? 'Image Attachment' : chatMsg.text,
+                            lastMessageTime: chatMsg.timestamp,
+                            unreadCount: newUnreadCount
+                        };
+                        
+                        const newSessions = [...state.sessions];
+                        newSessions[sessionIndex] = updatedSession;
+                        
+                        dbService.saveSession(updatedSession);
+                        
+                        // If this was the active session, trigger AI check
+                        if (isActive && isIncoming) {
+                            // Defer AI analysis slightly
+                            setTimeout(() => get().analyzeIntent(), 500);
+                        }
+                        
+                        return { sessions: newSessions };
+                    });
+
+                } catch (e) {
+                    console.error("Global SSE Parse Error", e);
+                }
+            };
+
+            eventSource.onerror = () => {
+                console.warn("Global SSE Connection Lost");
+                eventSource.close();
+                set({ globalEventSource: null });
+
+                // Exponential Backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+                const currentRetries = get().retryCount;
+                const nextRetryCount = currentRetries + 1;
+                const delay = Math.min(1000 * Math.pow(2, currentRetries), 30000);
+                
+                console.log(`Reconnecting in ${delay}ms...`);
+                
+                const timeoutId = window.setTimeout(() => {
+                    set({ reconnectTimeoutId: null });
+                    get().connectGlobalListener();
+                }, delay);
+
+                set({ 
+                    reconnectTimeoutId: timeoutId, 
+                    retryCount: nextRetryCount 
+                });
+            };
+
+            // Set initially (will be updated on open/error)
+            set({ globalEventSource: eventSource });
+
+        } catch (e) {
+            console.error("Failed to init Global SSE", e);
+            // Fallback retry
+            const timeoutId = window.setTimeout(() => {
+                set({ reconnectTimeoutId: null });
+                get().connectGlobalListener();
+            }, 5000);
+            set({ reconnectTimeoutId: timeoutId });
         }
     },
 
     setupBackgroundSync: () => {
-        // Handle Tab Visibility Changes
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                const { activeSessionId, activeEventSource } = get();
-                
-                // If we have an active session but connection is closed/missing, reconnect
-                if (activeSessionId && (!activeEventSource || activeEventSource.readyState === EventSource.CLOSED)) {
-                    console.debug("App visible: Reconnecting chat...");
-                    get().loadChatSession(activeSessionId);
+                const { globalEventSource } = get();
+                // If disconnected, force immediate reconnect (resetting backoff)
+                if (!globalEventSource || globalEventSource.readyState === EventSource.CLOSED) {
+                    console.debug("App visible: Reconnecting Global Chat...");
+                    set({ retryCount: 0 }); // Reset retries to try immediately
+                    get().connectGlobalListener();
                 }
             }
         });
 
-        // Handle Online Status
         window.addEventListener('online', () => {
-             const { activeSessionId } = get();
-             if (activeSessionId) {
-                 console.debug("Network online: Syncing chat...");
-                 get().loadChatSession(activeSessionId);
-             }
+             console.debug("Network online: Syncing...");
+             set({ retryCount: 0 }); // Reset retries
+             get().connectGlobalListener();
         });
     },
 
     disconnect: () => {
-        const { activeEventSource, abortController } = get();
-        if (activeEventSource) {
-            console.debug("Disconnecting active chat session...");
-            activeEventSource.close();
+        const { globalEventSource, abortController, reconnectTimeoutId } = get();
+        if (globalEventSource) {
+            console.debug("Disconnecting Global SSE...");
+            globalEventSource.close();
+        }
+        if (reconnectTimeoutId) {
+            clearTimeout(reconnectTimeoutId);
         }
         if (abortController) {
             abortController.abort();
         }
-        set({ activeEventSource: null, abortController: null });
+        set({ 
+            globalEventSource: null, 
+            abortController: null, 
+            aiSuggestion: null,
+            reconnectTimeoutId: null,
+            retryCount: 0
+        });
+    },
+
+    createLocalSession: async (customId: string) => {
+        const { sessions } = get();
+        if (sessions.find(s => s.id === customId)) {
+            set({ activeSessionId: customId, error: null });
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const newLease: LeaseData = {
+            ...INITIAL_LEASE,
+            reservationId: customId,
+            source: 'LOCAL_DRAFT',
+            createdDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            pickup: { ...INITIAL_LEASE.pickup, date: today },
+            dropoff: { ...INITIAL_LEASE.dropoff, date: today }
+        };
+
+        const newSession: ChatSession = {
+            id: customId,
+            user: {
+                id: 'new_renter',
+                name: 'New Renter',
+                role: 'Renter',
+                status: 'online',
+                avatar: ''
+            },
+            messages: [],
+            lastMessage: 'Draft created',
+            lastMessageTime: Date.now(),
+            unreadCount: 0,
+            reservationSummary: {
+                vehicleName: 'New Booking',
+                plateNumber: 'TBD',
+                status: 'pending',
+                price: 0,
+                currency: 'THB',
+                pickupDate: today,
+                dropoffDate: today
+            }
+        };
+
+        await dbService.saveSession(newSession);
+        
+        set(state => ({
+            sessions: [newSession, ...state.sessions],
+            activeSessionId: customId,
+            leaseContext: newLease,
+            error: null,
+            isLoading: false
+        }));
+
+        // Reconnect global listener to include new session
+        get().connectGlobalListener();
     },
 
     loadChatSession: async (reservationId: string) => {
-        // Ensure store is hydrated first to check for existing data
-        if (!get().isHydrated) {
-            await get().hydrate();
-        }
+        if (!get().isHydrated) await get().hydrate();
 
-        // Close existing connection & abort pending requests immediately
-        const { activeEventSource, abortController, sessions } = get();
-        if (activeEventSource) {
-            activeEventSource.close();
-        }
-        if (abortController) {
-            abortController.abort();
-        }
+        const { abortController, sessions } = get();
+        if (abortController) abortController.abort();
         
-        // Create new AbortController
         const controller = new AbortController();
         const signal = controller.signal;
-
-        // Generate a new token for this load request
         const myToken = Math.random();
+
         set({ 
-            activeEventSource: null, 
             abortController: controller,
             currentLoadToken: myToken,
-            // Optimistic active set
             activeSessionId: reservationId, 
             isLoading: !sessions.find(s => s.id === reservationId), 
-            error: null 
+            error: null,
+            aiSuggestion: null 
         });
 
         try {
-            // 1. Fetch Lease Data to get Renter/Owner context
-            const leaseData = await loadLeaseData(reservationId, signal);
+            // 1. Fetch Static Data (Lease + History + Log)
+            // We do NOT open a specific SSE here anymore. The Global Listener handles updates.
             
-            // CHECK: Did another load start while we were fetching?
+            const leaseData = await loadLeaseData(reservationId, signal);
             if (get().currentLoadToken !== myToken) return;
-
             set({ leaseContext: leaseData });
 
-            // 2. Fetch History (System Messages)
             const historyEvents = await fetchReservationHistory(leaseData.id || reservationId, signal);
-            
-            // CHECK
             if (get().currentLoadToken !== myToken) return;
 
-            // 3. Fetch Ntfy Messages (User Chat)
-            // Use the real UUID (leaseData.id) for the chat topic if available, otherwise input
             const topicId = leaseData.id || reservationId;
             const ntfyData = await fetchNtfyMessages(topicId, signal);
-
-            // CHECK
             if (get().currentLoadToken !== myToken) return;
 
-            // Create a map of existing messages to preserve status (read/sent)
             const existingSession = sessions.find(s => s.id === reservationId);
-            // Fix: Fallback to empty array to ensure correct Map type inference
             const localMsgMap = new Map<string, ChatMessage>(
                 (existingSession?.messages || []).map(m => [m.id, m] as [string, ChatMessage])
             );
 
-            // 4. Merge & Sort
-            
-            // Create Synthetic Summary Message
             const createdTime = leaseData.createdDate ? new Date(leaseData.createdDate).getTime() : Date.now();
             const summaryMessage: ChatMessage = {
                 id: `sys_summary_${leaseData.reservationId}`,
                 senderId: 'system',
                 text: `Reservation Details\n📅 ${leaseData.pickup.date} -> ${leaseData.dropoff.date}\n💰 ${leaseData.pricing.total.toLocaleString()} ${leaseData.pricing.currency || 'THB'}`,
-                timestamp: createdTime - 1, // Ensure it appears before "Reservation created via Web" if timestamps match exactly
+                timestamp: createdTime - 1,
                 type: 'system',
                 status: 'read'
             };
@@ -178,22 +373,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ...historyEvents.map(h => historyToChatMessage(h)),
                 ...ntfyData.map((n: any) => {
                     const local = localMsgMap.get(n.id);
-                    // Use local status if available (preserve 'read' state)
-                    const status = local ? local.status : 'read';
+                    const status = local ? local.status : 'read'; // Assume fetched history is read unless locally pending
                     return ntfyToChatMessage(n, status);
                 })
             ];
             
             allMessages.sort((a, b) => a.timestamp - b.timestamp);
-
-            // Recalculate unread count (incoming 'other' messages with status 'sent')
             const unreadCount = allMessages.filter(m => m.senderId !== 'me' && m.senderId !== 'system' && m.status === 'sent').length;
 
-            // 5. Create/Update Session
             const newSession: ChatSession = {
-                id: topicId, // Use UUID as session ID
+                id: topicId,
                 user: {
-                    id: leaseData.renter.surname, // simplified ID
+                    id: leaseData.renter.surname,
                     name: leaseData.renter.surname || 'Renter',
                     contact: leaseData.renter.contact,
                     role: 'Renter',
@@ -204,22 +395,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 lastMessage: allMessages.length > 0 ? (allMessages[allMessages.length - 1].type === 'image' ? 'Image Attachment' : allMessages[allMessages.length - 1].text) : 'No messages',
                 lastMessageTime: allMessages.length > 0 ? allMessages[allMessages.length - 1].timestamp : 0,
                 unreadCount: unreadCount,
-                isArchived: existingSession?.isArchived || false, // Preserve archive status
-                // CACHE RESERVATION SUMMARY FOR LIST VIEW
+                isArchived: existingSession?.isArchived || false,
                 reservationSummary: {
                     vehicleName: leaseData.vehicle.name,
                     plateNumber: leaseData.vehicle.plate,
                     status: leaseData.status || 'pending',
                     price: leaseData.pricing.total,
-                    deadline: leaseData.deadline // CACHE DEADLINE
+                    currency: leaseData.pricing.currency || 'THB',
+                    deadline: leaseData.deadline,
+                    pickupDate: leaseData.pickup.date,
+                    dropoffDate: leaseData.dropoff.date,
+                    exactPickupDate: leaseData.exactPickupDate,
+                    exactDropoffDate: leaseData.exactDropoffDate
                 }
             };
 
-            // 6. Update Store with Session & Persist
             set(state => {
-                // Double check token one last time before state update
                 if (state.currentLoadToken !== myToken) return {};
-
                 const existingIdx = state.sessions.findIndex(s => s.id === topicId);
                 let newSessions = [...state.sessions];
                 if (existingIdx >= 0) {
@@ -227,7 +419,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 } else {
                     newSessions.push(newSession);
                 }
-                
                 return {
                     sessions: newSessions,
                     activeSessionId: topicId,
@@ -235,98 +426,77 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 };
             });
             
-            // Async Save to DB
             await dbService.saveSession(newSession);
 
-            // 7. Establish SSE Connection for Live Updates
-            // Only connect if we have a valid topic and NOT in demo mode
-            if (get().currentLoadToken === myToken && leaseData.source !== 'OFFLINE_DEMO') {
-                try {
-                    const sseUrl = getChatSseUrl(topicId);
-                    const eventSource = new EventSource(sseUrl);
-                    
-                    eventSource.onmessage = (event) => {
-                        // Safety check inside callback
-                        if (get().currentLoadToken !== myToken) {
-                             eventSource.close();
-                             return;
-                        }
+            // If we just added a new session that wasn't in the global subscription list, update subscription
+            if (!existingSession) {
+                get().connectGlobalListener();
+            }
 
-                        try {
-                            const ntfyMsg = JSON.parse(event.data);
-                            if (ntfyMsg.event !== 'message') return;
-                            
-                            // Always mark incoming live messages as 'sent' (unread) initially.
-                            // The UI IntersectionObserver will mark them as 'read' when visible.
-                            const status = 'sent';
-
-                            const chatMsg = ntfyToChatMessage(ntfyMsg, status);
-                            
-                            set(state => {
-                                const sessionIndex = state.sessions.findIndex(s => s.id === topicId);
-                                if (sessionIndex === -1) return {};
-
-                                const session = state.sessions[sessionIndex];
-                                // Deduplicate based on ID
-                                if (session.messages.some(m => m.id === chatMsg.id)) return {};
-
-                                const updatedMessages = [...session.messages, chatMsg];
-                                
-                                const isIncoming = chatMsg.senderId !== 'me' && chatMsg.senderId !== 'system';
-                                const newUnreadCount = isIncoming ? (session.unreadCount || 0) + 1 : (session.unreadCount || 0);
-
-                                const updatedSession = {
-                                    ...session,
-                                    messages: updatedMessages,
-                                    lastMessage: chatMsg.type === 'image' ? 'Image Attachment' : chatMsg.text,
-                                    lastMessageTime: chatMsg.timestamp,
-                                    unreadCount: newUnreadCount
-                                };
-                                
-                                const newSessions = [...state.sessions];
-                                newSessions[sessionIndex] = updatedSession;
-                                
-                                dbService.saveSession(updatedSession);
-                                
-                                return { sessions: newSessions };
-                            });
-                        } catch (e) {
-                            console.error("SSE Parse Error", e);
-                        }
-                    };
-                    
-                    eventSource.onerror = () => {
-                        // Downgrade to warning as this is expected in some environments (CORS/Offline)
-                        // Close connection to prevent retry loop spam in console
-                        eventSource.close();
-                        console.warn("Chat connection lost (offline or CORS). Live updates paused.");
-                    };
-
-                    set({ activeEventSource: eventSource });
-                } catch (e) {
-                    console.warn("Failed to init SSE", e);
+            // Initial AI Check
+            if (newSession.messages.length > 0) {
+                const lastMsg = newSession.messages[newSession.messages.length - 1];
+                if (lastMsg.senderId !== 'me' && lastMsg.senderId !== 'system') {
+                    get().analyzeIntent();
                 }
             }
 
         } catch (e: any) {
-            // Ignore abort errors
             if (e.name === 'AbortError') return;
-
             console.error("Load Chat Error", e);
-            // Only update error if this is still the active request
             if (get().currentLoadToken === myToken) {
-                set(state => ({ 
-                    isLoading: false, 
-                    error: state.activeSessionId && state.sessions.find(s => s.id === state.activeSessionId) 
-                        ? null // Hide error if we have data to show
-                        : (e.message || "Failed to load chat")
-                }));
+                const localSession = get().sessions.find(s => s.id === reservationId);
+                if (localSession) {
+                    set({ 
+                        isLoading: false, 
+                        error: null,
+                        leaseContext: {
+                            ...INITIAL_LEASE,
+                            reservationId,
+                            status: localSession.reservationSummary?.status,
+                            vehicle: {
+                                ...INITIAL_LEASE.vehicle,
+                                name: localSession.reservationSummary?.vehicleName || '',
+                                plate: localSession.reservationSummary?.plateNumber || ''
+                            }
+                        }
+                    });
+                } else {
+                    set({ isLoading: false, error: e.message || "Failed to load chat" });
+                }
             }
         }
     },
 
+    analyzeIntent: async () => {
+        const { activeSessionId, sessions, leaseContext } = get();
+        if (!activeSessionId || !leaseContext) return;
+
+        const session = sessions.find(s => s.id === activeSessionId);
+        if (!session || session.messages.length === 0) return;
+
+        const lastMsg = session.messages[session.messages.length - 1];
+        if (lastMsg.senderId === 'me' || lastMsg.senderId === 'system') {
+            set({ aiSuggestion: null });
+            return;
+        }
+
+        const suggestion = await analyzeChatIntent(session.messages, leaseContext.status || 'pending');
+        
+        if (suggestion) {
+            console.log("AI Suggestion:", suggestion);
+            set({ aiSuggestion: suggestion });
+        } else {
+            set({ aiSuggestion: null });
+        }
+    },
+
+    clearAiSuggestion: () => {
+        set({ aiSuggestion: null });
+    },
+
     setActiveSession: (id: string) => {
-        set({ activeSessionId: id });
+        set({ activeSessionId: id, aiSuggestion: null });
     },
 
     archiveSession: (sessionId: string) => {
@@ -334,7 +504,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const session = state.sessions.find(s => s.id === sessionId);
             if (!session) return {};
 
-            const updatedSession = { ...session, isArchived: !session.isArchived }; // Toggle behavior
+            const updatedSession = { ...session, isArchived: !session.isArchived }; 
             const newSessions = state.sessions.map(s => s.id === sessionId ? updatedSession : s);
 
             dbService.saveSession(updatedSession);
@@ -345,27 +515,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
     deleteSession: async (sessionId: string) => {
         set(state => {
             const newSessions = state.sessions.filter(s => s.id !== sessionId);
-            // If active, deselect
             const newActive = state.activeSessionId === sessionId ? null : state.activeSessionId;
-            
             dbService.deleteSession(sessionId);
             return { sessions: newSessions, activeSessionId: newActive };
         });
+        // Update subscription list
+        get().connectGlobalListener();
     },
 
     markAsRead: (sessionId: string) => {
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
             if (sessionIdx === -1) return {};
-            
             const session = state.sessions[sessionIdx];
-            // Mark all messages as read
             const newMessages = session.messages.map(m => ({ ...m, status: 'read' as const }));
-            
             const newSession = { ...session, messages: newMessages, unreadCount: 0 };
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
-            
             dbService.saveSession(newSession);
             return { sessions: newSessions };
         });
@@ -375,12 +541,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
             if (sessionIdx === -1) return {};
-            
             const session = state.sessions[sessionIdx];
-            const newSession = { ...session, unreadCount: 1 }; // Force unread state
+            const newSession = { ...session, unreadCount: 1 };
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
-            
             dbService.saveSession(newSession);
             return { sessions: newSessions };
         });
@@ -390,39 +554,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set(state => {
             const sessionIdx = state.sessions.findIndex(s => s.id === sessionId);
             if (sessionIdx === -1) return {};
-
             const session = state.sessions[sessionIdx];
             const msgIdx = session.messages.findIndex(m => m.id === messageId);
-            
-            // If message not found or already read, do nothing
             if (msgIdx === -1 || session.messages[msgIdx].status === 'read') return {};
-
             const newMessages = [...session.messages];
             newMessages[msgIdx] = { ...newMessages[msgIdx], status: 'read' };
-
-            // Decrement unread count, ensure it doesn't go below 0
             const newUnreadCount = Math.max(0, session.unreadCount - 1);
-
-            const newSession = {
-                ...session,
-                messages: newMessages,
-                unreadCount: newUnreadCount
-            };
-
+            const newSession = { ...session, messages: newMessages, unreadCount: newUnreadCount };
             const newSessions = [...state.sessions];
             newSessions[sessionIdx] = newSession;
-
             dbService.saveSession(newSession);
-
             return { sessions: newSessions };
         });
     },
 
-    sendMessage: async (text: string) => {
+    sendMessage: async (text: string, tags: string[] = [], actions: NtfyAction[] = []) => {
         const { activeSessionId, sessions } = get();
         if (!activeSessionId || !text.trim()) return;
 
-        // Optimistic UI Update
         const tempId = Math.random().toString();
         const now = Date.now();
         const newMsg: ChatMessage = {
@@ -431,11 +580,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
             text: text,
             timestamp: now,
             type: 'text',
-            status: 'sent'
+            status: 'sent',
+            tags,
+            actions
         };
 
         let updatedSession: ChatSession | undefined;
-
         const updatedSessions = sessions.map(session => {
             if (session.id === activeSessionId) {
                 updatedSession = {
@@ -449,16 +599,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return session;
         });
 
-        set({ sessions: updatedSessions });
-        
-        if (updatedSession) {
-            await dbService.saveSession(updatedSession);
-        }
+        set({ sessions: updatedSessions, aiSuggestion: null });
+        if (updatedSession) await dbService.saveSession(updatedSession);
 
-        // Send to API
         try {
-            await sendNtfyMessage(activeSessionId, text);
-            // Re-fetching is handled by the live SSE stream
+            await sendNtfyMessage(activeSessionId, text, { tags, actions });
         } catch (e) {
             console.error("Failed to send message", e);
         }
@@ -468,7 +613,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const { activeSessionId, sessions } = get();
         if (!activeSessionId || !file) return;
 
-        // Optimistic UI Update using Object URL
         const tempId = Math.random().toString();
         const now = Date.now();
         const blobUrl = URL.createObjectURL(file);
@@ -484,7 +628,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
 
         let updatedSession: ChatSession | undefined;
-
         const updatedSessions = sessions.map(session => {
             if (session.id === activeSessionId) {
                 updatedSession = {
@@ -498,13 +641,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return session;
         });
 
-        set({ sessions: updatedSessions });
-        
-        if (updatedSession) {
-            await dbService.saveSession(updatedSession);
-        }
+        set({ sessions: updatedSessions, aiSuggestion: null });
+        if (updatedSession) await dbService.saveSession(updatedSession);
 
-        // Upload to API
         try {
             await sendNtfyImage(activeSessionId, file);
         } catch (e) {
@@ -520,26 +659,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
     confirmReservation: async () => {
         const { sendMessage, leaseContext } = get();
         if (!leaseContext) return;
-        
-        // 1. Optimistically update Status in local store
         set(state => ({
-            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'confirmed' } : null
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'confirmed' } : null,
+            aiSuggestion: null
         }));
-
-        // 2. Send System Message via Ntfy
-        await sendMessage("✅ Reservation confirmed by Owner");
+        await sendMessage("✅ Reservation confirmed", ['white_check_mark', 'status:confirmed'], [
+            { action: 'view', label: 'Open Booking', url: window.location.href }
+        ]);
     },
 
     rejectReservation: async () => {
          const { sendMessage, leaseContext } = get();
         if (!leaseContext) return;
-        
-        // 1. Optimistically update Status
         set(state => ({
-            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'rejected' } : null
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'rejected' } : null,
+            aiSuggestion: null
         }));
+        await sendMessage("❌ Reservation rejected", ['x', 'status:rejected'], [
+            { action: 'view', label: 'View Details', url: window.location.href }
+        ]);
+    },
 
-        // 2. Send System Message
-        await sendMessage("❌ Reservation rejected by Owner");
+    collectReservation: async () => {
+        const { sendMessage, leaseContext } = get();
+        if (!leaseContext) return;
+        set(state => ({
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'collected' } : null,
+            aiSuggestion: null
+        }));
+        await sendMessage("🔑 Vehicle collected", ['key', 'status:collected'], [
+            { action: 'view', label: 'Track', url: window.location.href }
+        ]);
+    },
+
+    completeReservation: async () => {
+        const { sendMessage, leaseContext } = get();
+        if (!leaseContext) return;
+        set(state => ({
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'completed' } : null,
+            aiSuggestion: null
+        }));
+        await sendMessage("🏁 Lease completed", ['checkered_flag', 'status:completed'], [
+            { action: 'view', label: 'View Receipt', url: window.location.href }
+        ]);
     }
 }));
