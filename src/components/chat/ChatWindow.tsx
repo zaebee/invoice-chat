@@ -171,14 +171,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const statusConfig = STATUS_CONFIG[leaseData.status || 'pending'] || STATUS_CONFIG['pending'];
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/30 relative">
+        <div className="flex flex-col h-full bg-slate-50/30 dark:bg-slate-950/30 relative">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
             {/* HEADER */}
-            <div className="h-14 md:h-16 border-b border-slate-200 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
+            <div className="h-14 md:h-16 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center px-3 md:px-6 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm z-20">
                 <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     {isMobile && (
-                        <button onClick={onBack} className="-ml-2 p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
+                        <button onClick={onBack} className="-ml-2 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
                             <ArrowLeft size={20} />
                         </button>
                     )}
@@ -186,18 +186,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     {/* User Info */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="relative shrink-0">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border border-slate-200 overflow-hidden">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700 overflow-hidden">
                                 {chat.user.avatar ? <img src={chat.user.avatar} alt={chat.user.name} className="w-full h-full object-cover" /> : chat.user.name[0]}
                             </div>
-                            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${chat.user.status === 'online' ? 'bg-green-500' : 'bg-slate-300'} md:block hidden`}></div>
+                            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white dark:border-slate-900 rounded-full ${chat.user.status === 'online' ? 'bg-green-500' : 'bg-slate-300'} md:block hidden`}></div>
                         </div>
                         <div className="flex flex-col min-w-0 justify-center">
                             <div className="flex items-center gap-1.5">
-                                <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{chat.user.name}</h3>
+                                <h3 className="font-bold text-slate-800 dark:text-white text-sm truncate leading-tight">{chat.user.name}</h3>
                                 {isMobile && <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.accent}`} />}
                             </div>
                             {!isMobile && (
-                                <p className="text-xs text-green-600 flex items-center gap-1 font-medium">
+                                <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 font-medium">
                                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                                     {t('chat_active', lang)}
                                 </p>
@@ -211,7 +211,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     {activeTab === 'chat' && (
                         <button 
                             onClick={() => setActiveTab('lease')}
-                            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg text-xs font-bold transition-all"
+                            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-bold transition-all"
                             title={t('preview', lang)}
                         >
                             <Eye size={16} />
@@ -225,8 +225,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         disabled={isGeneratingPdf}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50 ${
                             activeTab === 'chat' 
-                                ? 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50' 
-                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' 
+                                : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50'
                         }`}
                         title={activeTab === 'invoice' ? t('btn_download_invoice', lang) : t('btn_download_lease', lang)}
                     >
@@ -234,13 +234,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         <span className="hidden lg:inline">{t('download_pdf', lang)}</span>
                     </button>
 
-                    <button className="hidden md:block p-2 hover:bg-slate-100 rounded-full hover:text-slate-600 transition-colors"><Phone size={18} /></button>
-                    <button className="hidden md:block p-2 hover:bg-slate-100 rounded-full hover:text-slate-600 transition-colors"><Video size={18} /></button>
+                    <button className="hidden md:block p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><Phone size={18} /></button>
+                    <button className="hidden md:block p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><Video size={18} /></button>
                     
-                    <div className="h-6 w-px bg-slate-200 mx-1 hidden xl:block"></div>
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden xl:block"></div>
                     <button 
                         onClick={onToggleSidebar}
-                        className={`p-2 rounded-full transition-colors hidden xl:block ${isSidebarOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-100 hover:text-slate-600'}`}
+                        className={`p-2 rounded-full transition-colors hidden xl:block ${isSidebarOpen ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300'}`}
                         title="Toggle Context Panel"
                     >
                         {isSidebarOpen ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
@@ -250,52 +250,52 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div className="relative" ref={menuRef}>
                         <button 
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 text-slate-900' : 'hover:bg-slate-100 hover:text-slate-600'}`}
+                            className={`p-2 rounded-full transition-colors ${isMenuOpen ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300'}`}
                         >
                             <MoreVertical size={18} />
                         </button>
 
                         {isMenuOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                                 <div className="p-1.5 space-y-0.5">
                                     <button 
                                         onClick={() => { setActiveTab('chat'); setIsMenuOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'chat' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'chat' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         <MessageSquare size={16} /> {t('switch_chat', lang)}
                                         {activeTab === 'chat' && <Check size={14} className="ml-auto" />}
                                     </button>
                                     <button 
                                         onClick={() => { setActiveTab('lease'); setIsMenuOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'lease' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'lease' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         <Car size={16} /> {t('switch_lease', lang)}
                                         {activeTab === 'lease' && <Check size={14} className="ml-auto" />}
                                     </button>
                                     <button 
                                         onClick={() => { setActiveTab('invoice'); setIsMenuOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'invoice' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'invoice' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         <FileText size={16} /> {t('switch_invoice', lang)}
                                         {activeTab === 'invoice' && <Check size={14} className="ml-auto" />}
                                     </button>
                                 </div>
-                                <div className="border-t border-slate-100 p-1.5 space-y-0.5">
+                                <div className="border-t border-slate-100 dark:border-slate-700 p-1.5 space-y-0.5">
                                     <button 
                                         onClick={() => { handleDownloadPdf('lease'); setIsMenuOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg"
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg"
                                     >
                                         <Download size={14} /> {t('btn_download_lease', lang)}
                                     </button>
                                     <button 
                                         onClick={() => { handleDownloadPdf('invoice'); setIsMenuOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg"
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg"
                                     >
                                         <Download size={14} /> {t('btn_download_invoice', lang)}
                                     </button>
                                 </div>
-                                <div className="border-t border-slate-100 p-1.5">
-                                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">
+                                <div className="border-t border-slate-100 dark:border-slate-700 p-1.5">
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg">
                                         <Phone size={16} /> {t('btn_call', lang)}
                                     </button>
                                 </div>
@@ -340,7 +340,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {/* LEASE VIEW */}
                 {activeTab === 'lease' && (
-                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 p-4 flex justify-center">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 dark:bg-slate-900 p-4 flex justify-center">
                         <div className="w-full max-w-[210mm] origin-top bg-white shadow-lg min-h-[297mm]">
                             <LeasePreview data={leaseData} lang={lang} />
                         </div>
@@ -349,7 +349,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {/* INVOICE VIEW */}
                 {activeTab === 'invoice' && (
-                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 p-4 flex justify-center">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-100 dark:bg-slate-900 p-4 flex justify-center">
                         <div className="w-full max-w-[210mm] origin-top bg-white shadow-lg min-h-[297mm]">
                             <InvoicePreview data={invoiceData} />
                         </div>
@@ -360,18 +360,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
             {/* INPUT AREA (Only in Chat) */}
             {activeTab === 'chat' && (
-                <div className="p-2 md:p-4 border-t border-slate-200 shrink-0 bg-white z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+                <div className="p-2 md:p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 z-10 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
                     
                     {/* SMART SUGGESTION */}
                     {aiSuggestion && (
-                        <div className="mb-3 mx-1 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 rounded-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                            <div className="p-2 bg-white rounded-full text-purple-600 shadow-sm shrink-0">
+                        <div className="mb-3 mx-1 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-100 dark:border-purple-800 rounded-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-white/40 dark:bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                            <div className="p-2 bg-white dark:bg-slate-800 rounded-full text-purple-600 dark:text-purple-400 shadow-sm shrink-0">
                                 <Sparkles size={16} className="animate-pulse" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-0.5">{t('lbl_ai_suggestion', lang)}</div>
-                                <div className="text-xs text-slate-700 truncate">{aiSuggestion.reason}</div>
+                                <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-0.5">{t('lbl_ai_suggestion', lang)}</div>
+                                <div className="text-xs text-slate-700 dark:text-slate-300 truncate">{aiSuggestion.reason}</div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                                 <button 
@@ -382,7 +382,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 </button>
                                 <button 
                                     onClick={clearAiSuggestion}
-                                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white/50 rounded-full transition-colors"
+                                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700 rounded-full transition-colors"
                                 >
                                     <X size={14} />
                                 </button>
@@ -392,7 +392,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                     <div className="relative flex items-center gap-2">
                         <form className="relative flex items-center gap-2 flex-1" onSubmit={handleSend} autoComplete="off">
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors md:hidden">
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors md:hidden">
                                 <ImageIcon size={22} />
                             </button>
                             
@@ -400,7 +400,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <input 
                                     type="text" 
                                     name="message"
-                                    className="w-full bg-slate-50 border-transparent focus:bg-white border focus:border-blue-300 rounded-full py-2.5 md:py-3 px-4 md:px-5 pr-10 md:pr-12 text-base md:text-sm focus:ring-4 focus:ring-blue-100 text-slate-800 outline-none transition-all placeholder:text-slate-400"
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-300 dark:focus:border-blue-700 rounded-full py-2.5 md:py-3 px-4 md:px-5 pr-10 md:pr-12 text-base md:text-sm focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30 text-slate-800 dark:text-white outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                     placeholder={t('chat_type_message', lang)}
                                     value={messageInput}
                                     onChange={(e) => setMessageInput(e.target.value)}
@@ -408,10 +408,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             </div>
 
                             <div className="absolute right-14 md:right-14 flex gap-2 text-slate-400 hidden md:flex">
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="hover:text-blue-600 transition-colors p-1">
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1">
                                     <ImageIcon size={20} />
                                 </button>
-                                <button type="button" className="hover:text-blue-600 transition-colors p-1"><Smile size={20} /></button>
+                                <button type="button" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1"><Smile size={20} /></button>
                             </div>
                             <button 
                                 type="submit"
