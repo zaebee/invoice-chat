@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useCallback } from 'react';
 
 export const useDraggableScroll = <T extends HTMLElement>() => {

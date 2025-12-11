@@ -1,5 +1,4 @@
 
-
 import { Language } from '../types';
 
 export type TranslationKey =
@@ -1256,5 +1255,5 @@ const dictionary: Record<Language, Record<TranslationKey, string>> = {
 };
 
 export const t = (key: TranslationKey, lang: Language): string => {
-  return dictionary[lang][key] || dictionary['en'][key] || key;
+  return dictionary[lang]?.[key] || dictionary['en']?.[key] || key;
 };
