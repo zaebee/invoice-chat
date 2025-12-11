@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { inject } from '@vercel/analytics';
 import App from './App';
 import { registerSW } from './registerSW';
 
@@ -8,6 +9,7 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+inject();
 registerSW();
 
 const root = ReactDOM.createRoot(rootElement);
