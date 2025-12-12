@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { FileEdit, MapPin, User as UserIcon, Car, CalendarPlus, Check } from 'lucide-react';
 import { ChatSession, LeaseData, Language } from '../../types';
@@ -22,7 +24,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 }) => {
     const [sidebarTab, setSidebarTab] = useState<'profile' | 'details' | 'map'>('details');
     const [reminderSet, setReminderSet] = useState<string | null>(null); // 'pickup' | 'dropoff'
-    const { vehicle, status, pickup, dropoff, pricing } = leaseData;
+    const { vehicle, status, pickup, dropoff, pricing, owner } = leaseData;
 
     const handleReminder = async (type: 'pickup' | 'dropoff') => {
         const dateStr = type === 'pickup' ? pickup.date : dropoff.date;
@@ -180,11 +182,39 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                                 <MapPin size={32} className="text-blue-500 dark:text-blue-400" />
                             </div>
                             <h4 className="text-slate-800 dark:text-slate-200 font-bold text-sm mb-1">{t('rp_pickup_location', lang)}</h4>
-                            <p className="text-xs mb-6 max-w-[200px]">{leaseData.owner.address}</p>
-                            <div className="w-full aspect-square bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden relative">
-                                <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-cover opacity-10 dark:opacity-5 grayscale"></div>
-                                <span className="text-xs font-bold relative z-10 bg-white/80 dark:bg-slate-900/80 dark:text-slate-200 px-3 py-1 rounded-full backdrop-blur-sm">{t('rp_map_placeholder', lang)}</span>
+                            <p className="text-xs mb-6 max-w-[200px]">{owner.address}</p>
+                            
+                            <div className="w-full aspect-square bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden relative shadow-inner">
+                                {owner.coords ? (
+                                    <iframe 
+                                        width="100%" 
+                                        height="100%" 
+                                        frameBorder="0" 
+                                        scrolling="no" 
+                                        marginHeight={0} 
+                                        marginWidth={0} 
+                                        src={`https://maps.google.com/maps?q=${owner.coords.latitude},${owner.coords.longitude}&z=15&output=embed`}
+                                        className="absolute inset-0"
+                                        title="Google Maps"
+                                    />
+                                ) : (
+                                    <>
+                                        <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-cover opacity-10 dark:opacity-5 grayscale"></div>
+                                        <span className="text-xs font-bold relative z-10 bg-white/80 dark:bg-slate-900/80 dark:text-slate-200 px-3 py-1 rounded-full backdrop-blur-sm">{t('rp_map_placeholder', lang)}</span>
+                                    </>
+                                )}
                             </div>
+                            
+                            {owner.coords && (
+                                <a 
+                                    href={`https://www.google.com/maps/search/?api=1&query=${owner.coords.latitude},${owner.coords.longitude}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                                >
+                                    <MapPin size={14} /> Open in Google Maps
+                                </a>
+                            )}
                         </div>
                     )}
 

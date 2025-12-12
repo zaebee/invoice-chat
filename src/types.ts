@@ -104,6 +104,10 @@ export interface LeaseData {
     contact: string;
     address: string;
     signature?: string; // Base64 data URL
+    coords?: {
+        latitude: number;
+        longitude: number;
+    };
   };
   renter: {
     surname: string;

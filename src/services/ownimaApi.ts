@@ -1,5 +1,6 @@
 
 
+
 import { LeaseData, INITIAL_LEASE, LeaseStatus, NtfyAction } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -21,6 +22,10 @@ interface OwnerProfile {
     address: string;
     rent_service_name?: string;
     bio?: string;
+    coords?: {
+        latitude: number;
+        longitude: number;
+    };
 }
 
 const humanizeSource = (source: string | null | undefined): string => {
@@ -135,6 +140,7 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
         const ownerAddress = ownerProfile?.address || 'Address line';
         // Use username or bio as contact placeholder since phone/email are not explicitly in profile schema
         const ownerContact = ownerProfile?.username || '+000000000';
+        const ownerCoords = ownerProfile?.coords;
 
         // Pickup/Dropoff Fees logic
         const pickupFee = (p.asked_early_pickup || p.asked_late_pickup) ? (p.extra_price || 0) : 0;
@@ -205,7 +211,8 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
             owner: {
                 surname: ownerSurname,
                 contact: ownerContact,
-                address: ownerAddress
+                address: ownerAddress,
+                coords: ownerCoords
             }
         };
     } catch (error) {
