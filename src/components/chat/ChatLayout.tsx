@@ -84,6 +84,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ leaseData, lang, leaseHa
                     ...INITIAL_LEASE.vehicle,
                     name: activeChat.reservationSummary.vehicleName,
                     plate: activeChat.reservationSummary.plateNumber,
+                    imageUrl: activeChat.reservationSummary.vehicleImageUrl
                 },
                 pricing: {
                     ...INITIAL_LEASE.pricing,

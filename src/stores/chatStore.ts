@@ -1,5 +1,3 @@
-
-
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
@@ -402,6 +400,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 reservationSummary: {
                     vehicleName: leaseData.vehicle.name,
                     plateNumber: leaseData.vehicle.plate,
+                    vehicleImageUrl: leaseData.vehicle.imageUrl,
                     status: leaseData.status || 'pending',
                     price: leaseData.pricing.total,
                     currency: leaseData.pricing.currency || 'THB',
@@ -460,7 +459,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                             vehicle: {
                                 ...INITIAL_LEASE.vehicle,
                                 name: localSession.reservationSummary?.vehicleName || '',
-                                plate: localSession.reservationSummary?.plateNumber || ''
+                                plate: localSession.reservationSummary?.plateNumber || '',
+                                imageUrl: localSession.reservationSummary?.vehicleImageUrl
                             }
                         }
                     });
