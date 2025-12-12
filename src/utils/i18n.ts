@@ -1,4 +1,3 @@
-
 import { Language } from '../types';
 
 export type TranslationKey =
@@ -148,6 +147,7 @@ export type TranslationKey =
   | 'btn_delete'
   | 'btn_archive'
   | 'btn_call'
+  | 'btn_restart'
   | 'btn_download_lease'
   | 'btn_download_invoice'
   | 'btn_open_link'
@@ -219,10 +219,38 @@ export type TranslationKey =
   | 'sched_title'
   | 'sched_today'
   | 'sched_no_vehicles'
-  | 'sched_conflicts_detected';
+  | 'sched_conflicts_detected'
+  // No Response Messages
+  | 'no_resp_owner_initial'
+  | 'no_resp_owner_conflict'
+  | 'no_resp_owner_handover'
+  | 'no_resp_owner_return'
+  | 'no_resp_rider_initial'
+  | 'no_resp_rider_conflict'
+  | 'no_resp_rider_handover'
+  | 'no_resp_rider_return'
+  | 'no_resp_auto_initial'
+  | 'no_resp_auto_conflict'
+  | 'no_resp_auto_handover'
+  | 'no_resp_auto_return'
+  | 'no_resp_generic';
 
 const dictionary: any = {
   ru: {
+    btn_restart: 'Начать заново',
+    no_resp_owner_initial: 'Владелец не подтвердил бронь. Бронь отменена.',
+    no_resp_owner_conflict: 'Владелец не ответил на запрос о конфликте.',
+    no_resp_owner_handover: 'Владелец не подтвердил выдачу авто.',
+    no_resp_owner_return: 'Владелец не подтвердил возврат авто.',
+    no_resp_rider_initial: 'Райдер не подтвердил бронь. Бронь отменена.',
+    no_resp_rider_conflict: 'Райдер не ответил на запрос о конфликте.',
+    no_resp_rider_handover: 'Райдер не подтвердил прием авто.',
+    no_resp_rider_return: 'Райдер не подтвердил возврат авто.',
+    no_resp_auto_initial: 'Нет ответа от сторон. Бронь отменена.',
+    no_resp_auto_conflict: 'Нет ответа от сторон по конфликту.',
+    no_resp_auto_handover: 'Таймаут подтверждения выдачи.',
+    no_resp_auto_return: 'Таймаут подтверждения возврата.',
+    no_resp_generic: 'Нет ответа по этой брони.',
     invoice_editor: 'Редактор счета',
     lease_editor: 'Редактор договора',
     preview: 'Предпросмотр',
@@ -429,6 +457,20 @@ const dictionary: any = {
     sched_conflicts_detected: 'Обнаружен конфликт расписания!'
   },
   en: {
+    btn_restart: 'Restart',
+    no_resp_owner_initial: 'The owner has not confirmed the reservation. Reservation cancelled.',
+    no_resp_owner_conflict: 'The owner has not responded to the conflict resolution request.',
+    no_resp_owner_handover: 'The owner has not confirmed vehicle handover.',
+    no_resp_owner_return: 'The owner has not confirmed vehicle return.',
+    no_resp_rider_initial: 'You have not confirmed the reservation. Reservation cancelled.',
+    no_resp_rider_conflict: 'You have not responded to the conflict resolution request.',
+    no_resp_rider_handover: 'You have not confirmed receiving the vehicle.',
+    no_resp_rider_return: 'You have not confirmed returning the vehicle.',
+    no_resp_auto_initial: 'Neither party responded. Reservation cancelled.',
+    no_resp_auto_conflict: 'No response from either party regarding conflict.',
+    no_resp_auto_handover: 'Handover confirmation timed out.',
+    no_resp_auto_return: 'Return confirmation timed out.',
+    no_resp_generic: 'No response was received for this reservation.',
     invoice_editor: 'Invoice Editor',
     lease_editor: 'Lease Editor',
     preview: 'Preview',
@@ -838,7 +880,9 @@ const dictionary: any = {
     sched_title: 'ตารางการจอง',
     sched_today: 'วันนี้',
     sched_no_vehicles: 'ไม่มีรถที่ใช้งานอยู่',
-    sched_conflicts_detected: 'พบข้อขัดแย้งในตารางเวลา!'
+    sched_conflicts_detected: 'พบข้อขัดแย้งในตารางเวลา!',
+    btn_restart: 'เริ่มใหม่',
+    no_resp_generic: 'ไม่ได้รับการตอบกลับ'
   },
   vi: {
     invoice_editor: 'Trình chỉnh sửa hóa đơn',
@@ -1044,7 +1088,9 @@ const dictionary: any = {
     sched_title: 'Lịch đặt xe',
     sched_today: 'Hôm nay',
     sched_no_vehicles: 'Không có xe hoạt động',
-    sched_conflicts_detected: 'Phát hiện xung đột lịch trình!'
+    sched_conflicts_detected: 'Phát hiện xung đột lịch trình!',
+    btn_restart: 'Khởi động lại',
+    no_resp_generic: 'Không có phản hồi'
   },
   id: {
     invoice_editor: 'Editor Faktur',
@@ -1250,7 +1296,9 @@ const dictionary: any = {
     sched_title: 'Jadwal Pemesanan',
     sched_today: 'Hari Ini',
     sched_no_vehicles: 'Tidak ada kendaraan aktif',
-    sched_conflicts_detected: 'Konflik jadwal terdeteksi!'
+    sched_conflicts_detected: 'Konflik jadwal terdeteksi!',
+    btn_restart: 'Mulai Ulang',
+    no_resp_generic: 'Tidak ada tanggapan'
   },
 };
 

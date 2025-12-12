@@ -1,4 +1,5 @@
 
+
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
@@ -40,6 +41,7 @@ interface ChatState {
     rejectReservation: () => Promise<void>;
     collectReservation: () => Promise<void>;
     completeReservation: () => Promise<void>;
+    restartReservation: () => Promise<void>;
     markAsRead: (sessionId: string) => void;
     markAsUnread: (sessionId: string) => void;
     markMessageAsRead: (sessionId: string, messageId: string) => void;
@@ -702,6 +704,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
         await sendMessage("🏁 Lease completed", ['checkered_flag', 'status:completed'], [
             { action: 'view', label: 'View Receipt', url: window.location.href }
+        ]);
+    },
+
+    restartReservation: async () => {
+        const { sendMessage, leaseContext } = get();
+        if (!leaseContext) return;
+        set(state => ({
+            leaseContext: state.leaseContext ? { ...state.leaseContext, status: 'pending' } : null,
+            aiSuggestion: null
+        }));
+        await sendMessage("🔄 Reservation restarted", ['refresh', 'status:pending'], [
+            { action: 'view', label: 'View Booking', url: window.location.href }
         ]);
     }
 }));

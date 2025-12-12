@@ -1,4 +1,5 @@
 
+
 import { LeaseData, INITIAL_LEASE, LeaseStatus, NtfyAction } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -162,6 +163,7 @@ const mapResponseToLeaseData = (json: any, ownerProfile?: OwnerProfile | null): 
             id: r.id, // Store real UUID for API calls
             reservationId: reservationId, // Store humanized ID for Display
             status: status,
+            noResponseMeta: r.no_response_meta, // Map the new metadata
             source: humanizeSource(r.humanized?.source),
             createdDate: r.created_date ? r.created_date.split('T').join(' ').slice(0, 16) : '',
             deadline: r.deadline_timestamp ? r.deadline_timestamp * 1000 : undefined, // Convert Sec -> Ms

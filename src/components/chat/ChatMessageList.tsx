@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote, Radio, Filter, X } from 'lucide-react';
-import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction } from '../../types';
-import { t } from '../../utils/i18n';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, File, Download, AlertTriangle, AlertCircle, ExternalLink, Tag, MousePointerClick, Loader2, Banknote, Radio, Filter, X, RefreshCcw } from 'lucide-react';
+import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction, NoResponseMeta } from '../../types';
+import { t, TranslationKey } from '../../utils/i18n';
 import { STATUS_CONFIG } from './ChatUtils';
 
 interface ChatMessageListProps {
@@ -12,7 +12,9 @@ interface ChatMessageListProps {
     onReject: () => void;
     onCollect?: () => void;
     onComplete?: () => void;
+    onRestart?: () => void;
     leaseStatus?: LeaseStatus;
+    noResponseMeta?: NoResponseMeta;
     lang: Language;
     deadline?: {
         hasDeadline: boolean;
@@ -131,7 +133,9 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     onReject,
     onCollect,
     onComplete,
+    onRestart,
     leaseStatus,
+    noResponseMeta,
     lang,
     deadline
 }) => {
@@ -247,257 +251,4 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             case 'collected':
                 if (!onComplete) return null;
                 return (
-                    <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300">
-                        <button onClick={onComplete} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all">
-                            <Flag size={14} /> {t('btn_complete', lang)}
-                        </button>
-                    </div>
-                );
-
-            default:
-                return null;
-        }
-    };
-
-    const hasActiveFilters = filterPriority || filterTag;
-
-    return (
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 flex flex-col custom-scrollbar bg-slate-50/50 dark:bg-slate-950/50 overscroll-contain relative">
-            
-            {/* Filter Toggle - Floating Top Right */}
-            <div className="sticky top-0 z-40 flex justify-end -mt-2 -mr-2 mb-2 pointer-events-none">
-                 <div className="pointer-events-auto">
-                    <button 
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`p-2 rounded-full shadow-sm border transition-all ${hasActiveFilters ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'}`}
-                    >
-                        <Filter size={16} />
-                    </button>
-                 </div>
-            </div>
-
-            {/* Filter Panel */}
-            {showFilters && (
-                <div className="sticky top-10 z-40 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md mb-4 animate-in slide-in-from-top-2">
-                    <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                            <input 
-                                type="checkbox" 
-                                checked={filterPriority} 
-                                onChange={(e) => setFilterPriority(e.target.checked)}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            High Priority Only
-                        </label>
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
-                        <input 
-                            type="text" 
-                            placeholder="Filter by tag..." 
-                            className="flex-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 outline-none focus:border-blue-400 dark:focus:border-blue-600 text-slate-800 dark:text-slate-200"
-                            value={filterTag}
-                            onChange={(e) => setFilterTag(e.target.value)}
-                        />
-                        {hasActiveFilters && (
-                            <button onClick={() => { setFilterPriority(false); setFilterTag(''); }} className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                                <X size={14} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Empty State */}
-            {filteredMessages.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-                    <p className="text-xs italic">No messages found.</p>
-                    {hasActiveFilters && <button onClick={() => { setFilterPriority(false); setFilterTag(''); }} className="text-blue-500 dark:text-blue-400 text-xs font-bold mt-2 hover:underline">Clear Filters</button>}
-                </div>
-            )}
-
-            {filteredMessages.map((msg: ChatMessage, index: number) => {
-                const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
-                const isDifferentDay = !prevMsg || new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString();
-                const isHighPriority = msg.priority && msg.priority >= 4;
-                const isUrgent = msg.priority === 5;
-
-                return (
-                    <React.Fragment key={msg.id}>
-                        {isDifferentDay && (
-                            <div className="flex justify-center my-4 md:my-6 sticky top-2 z-30 pointer-events-none">
-                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm px-3 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm bg-white/80 dark:bg-slate-800/80">
-                                    {formatDateSeparator(msg.timestamp)}
-                                </span>
-                            </div>
-                        )}
-
-                        {msg.type === 'system' ? (
-                            <div className="w-full flex flex-col items-center my-4 px-2 md:px-12">
-                                <div className="flex items-center w-full gap-3 mb-2">
-                                    <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
-                                    <div className="shrink-0">
-                                        {msg.metadata?.status && STATUS_CONFIG[msg.metadata.status] ? (
-                                            (() => {
-                                                const config = STATUS_CONFIG[msg.metadata.status!];
-                                                return (
-                                                    <div className={`px-4 py-1.5 rounded-2xl border shadow-sm flex items-center gap-2 bg-white dark:bg-slate-900 ${config.border} ${config.text}`}>
-                                                        {config.icon}
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider">{t(config.labelKey, lang)}</span>
-                                                    </div>
-                                                );
-                                            })()
-                                        ) : (
-                                            <div className="px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-                                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">System</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
-                                </div>
-
-                                <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                                    {formatShortDateStr(msg.timestamp)}, {formatTime(msg.timestamp)}
-                                </div>
-
-                                {msg.text && (
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 italic text-center max-w-sm">
-                                        {msg.text}
-                                    </p>
-                                )}
-
-                                {renderActions(msg.metadata?.status)}
-                            </div>
-                        ) : (
-                            <div className={`message-wrapper flex gap-2 md:gap-3 max-w-[90%] md:max-w-[70%] ${msg.senderId === 'me' ? 'self-end flex-row-reverse' : 'self-start'}`} data-id={msg.id} data-status={msg.status} data-sender={msg.senderId}>
-                                {msg.senderId !== 'me' && (
-                                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 flex items-center justify-center text-[10px] md:text-xs font-bold text-slate-600 dark:text-slate-400 shadow-sm mt-auto overflow-hidden">
-                                        {currentUser.avatar ? <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" /> : currentUser.name[0]}
-                                    </div>
-                                )}
-                                
-                                <div className="flex flex-col gap-1">
-                                    {/* Message Bubble Container */}
-                                    <div className={`flex flex-col ${msg.senderId === 'me' ? 'items-end' : 'items-start'}`}>
-                                        
-                                        {/* PRIORITY LABEL */}
-                                        {isHighPriority && (
-                                            <div className={`flex items-center gap-1 text-[10px] font-bold mb-1 uppercase tracking-wide px-2 py-0.5 rounded-full ${isUrgent ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'}`}>
-                                                {isUrgent ? <AlertCircle size={10} /> : <AlertTriangle size={10} />}
-                                                {isUrgent ? 'Urgent' : 'High Priority'}
-                                            </div>
-                                        )}
-
-                                        {/* ATTACHMENT: IMAGE */}
-                                        {msg.type === 'image' && msg.attachmentUrl && (
-                                            <div className={`overflow-hidden rounded-2xl shadow-sm border border-black/5 dark:border-white/10 mb-1 ${msg.senderId === 'me' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
-                                                <img src={msg.attachmentUrl} alt={msg.attachment?.name || "Attachment"} className="max-w-full max-h-[300px] object-cover bg-slate-100 dark:bg-slate-800" loading="lazy" />
-                                            </div>
-                                        )}
-
-                                        {/* ATTACHMENT: FILE */}
-                                        {msg.type === 'file' && msg.attachment && (
-                                            <a 
-                                                href={msg.attachment.url} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className={`flex items-center gap-3 p-3 rounded-xl border mb-1 transition-all group ${
-                                                    msg.senderId === 'me' 
-                                                        ? 'bg-blue-600 border-blue-500 text-white' 
-                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                                }`}
-                                            >
-                                                <div className={`p-2 rounded-lg ${msg.senderId === 'me' ? 'bg-blue-500/50' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                                                    <File size={20} className={msg.senderId === 'me' ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
-                                                </div>
-                                                <div className="flex flex-col min-w-[100px]">
-                                                    <span className="text-xs font-bold truncate max-w-[150px]">{msg.attachment.name}</span>
-                                                    <span className={`text-[10px] ${msg.senderId === 'me' ? 'text-blue-100' : 'text-slate-400'}`}>
-                                                        {formatFileSize(msg.attachment.size)}
-                                                    </span>
-                                                </div>
-                                                <Download size={16} className={`opacity-70 group-hover:opacity-100 ${msg.senderId === 'me' ? 'text-white' : 'text-slate-400'}`} />
-                                            </a>
-                                        )}
-
-                                        {/* TEXT BUBBLE */}
-                                        {msg.text && (
-                                            <div className={`px-3 py-2 md:px-4 md:py-2.5 shadow-sm text-[13px] md:text-sm leading-relaxed relative ${
-                                                msg.senderId === 'me' 
-                                                    ? `bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-tr-sm shadow-blue-200/50 ${isUrgent ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`
-                                                    : `bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] ${isUrgent ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10' : ''}`
-                                            }`}>
-                                                {msg.text}
-                                            </div>
-                                        )}
-
-                                        {/* ACTION LINK */}
-                                        {msg.clickUrl && (
-                                            <a 
-                                                href={msg.clickUrl} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className={`mt-1.5 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
-                                                    msg.senderId === 'me'
-                                                        ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                                }`}
-                                            >
-                                                <ExternalLink size={12} />
-                                                {t('btn_open_link', lang)}
-                                            </a>
-                                        )}
-
-                                        {/* NTFY ACTIONS (Interactive Buttons) */}
-                                        {msg.actions && msg.actions.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mt-1.5">
-                                                {msg.actions.map((action, i) => (
-                                                    <ActionButton 
-                                                        key={i} 
-                                                        action={action} 
-                                                        isMe={msg.senderId === 'me'} 
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-
-                                    </div>
-
-                                    {/* METADATA ROW: Time + Tags */}
-                                    <div className={`flex flex-wrap items-center gap-2 mt-0.5 px-1 ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}>
-                                        
-                                        {/* Visual Tags */}
-                                        {msg.tags && msg.tags.length > 0 && (
-                                            <div className="flex gap-1">
-                                                {msg.tags.filter(t => !t.startsWith('status:') && t !== 'system').map(tag => {
-                                                    const style = TAG_STYLES[tag];
-                                                    if (style) {
-                                                        return (
-                                                            <span key={tag} className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${style.className}`}>
-                                                                {style.icon} {style.label || tag}
-                                                            </span>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <span key={tag} className="flex items-center gap-0.5 text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                                                            <Tag size={8} /> {tag}
-                                                        </span>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-slate-400 dark:text-slate-500 font-medium select-none">
-                                            {msg.senderId === 'me' && msg.status === 'read' && <CheckCheck size={12} className="text-blue-500" />}
-                                            {msg.senderId === 'me' && msg.status === 'sent' && <Check size={12} />}
-                                            <span>{formatTime(msg.timestamp)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </React.Fragment>
-                );
-            })}
-            <div ref={messagesEndRef} className="h-2" />
-        </div>
-    );
-};
+                    <div className="mt-3 flex flex-col items-center z-10 w-full animate-in zoom-in duration-300

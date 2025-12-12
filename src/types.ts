@@ -51,11 +51,21 @@ export type LeaseStatus =
   | 'no_response' 
   | 'rejected';
 
+export interface NoResponseMeta {
+  from_party: 'owner' | 'rider' | 'auto';
+  stage: 'initial' | 'conflict' | 'handover' | 'return';
+  policy: string;
+  deadline_at?: string;
+  expired_at?: string;
+  reason_hint?: string;
+}
+
 export interface LeaseData {
   id?: string; // UUID for API calls
   reservationId: string; // Display ID (e.g. humanized "123-456")
   contractTemplateId?: string; // New field for Server-Side Preview
   status?: LeaseStatus; // Added status field
+  noResponseMeta?: NoResponseMeta; // Metadata for no_response status
   source: string;
   createdDate: string; // DateTime string
   deadline?: number; // Unix Timestamp (ms) for action deadline
