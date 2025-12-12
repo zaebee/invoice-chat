@@ -51,13 +51,18 @@ export default function EditorPage() {
   const invoice = useInvoice();
   const lease = useLease();
   const ai = useAiAssistant(lang);
-  const chatStore = useChatStore();
+  
+  // Store Selectors to prevent unnecessary re-renders
+  const importWorkspace = useChatStore(state => state.importWorkspace);
+  const loadChatSession = useChatStore(state => state.loadChatSession);
+  const disconnect = useChatStore(state => state.disconnect);
+  const leaseContext = useChatStore(state => state.leaseContext);
 
   // Handle Workspace Import
   useEffect(() => {
       const workspace = searchParams.get('workspace');
       if (workspace) {
-          chatStore.importWorkspace(workspace).then(() => {
+          importWorkspace(workspace).then(() => {
               // Clear param from URL
               setSearchParams(prev => {
                   prev.delete('workspace');
@@ -65,7 +70,7 @@ export default function EditorPage() {
               });
           });
       }
-  }, [searchParams, chatStore, setSearchParams]);
+  }, [searchParams, importWorkspace, setSearchParams]);
 
   // Route Handling
   useEffect(() => {
@@ -73,24 +78,24 @@ export default function EditorPage() {
         setDocType('schedule');
     } else if (id) {
         setDocType('chat');
-        chatStore.loadChatSession(id);
+        loadChatSession(id);
     } else {
         setDocType('chat');
     }
     
     // Cleanup: Disconnect chat when component unmounts or ID changes
     return () => {
-        chatStore.disconnect();
+        disconnect();
     };
-  }, [id, location.pathname]);
+  }, [id, location.pathname, loadChatSession, disconnect]);
 
   // Sync Lease Editor with Active Chat Session
   useEffect(() => {
-      if (chatStore.leaseContext) {
+      if (leaseContext) {
           // If a chat is loaded, update the lease form with its data
-          lease.setData(chatStore.leaseContext);
+          lease.setData(leaseContext);
       }
-  }, [chatStore.leaseContext]);
+  }, [leaseContext]);
 
   const handleSmartImport = async () => {
     const result = await ai.parse(docType === 'chat' || docType === 'schedule' ? 'lease' : docType); // Fallback for chat/schedule
