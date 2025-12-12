@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, AlertTriangle, AlertCircle, ExternalLink, Loader2, Banknote, Radio, X, RefreshCcw, MousePointerClick } from 'lucide-react';
+import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, AlertCircle, ExternalLink, Loader2, Radio, X, RefreshCcw, MousePointerClick } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction, NoResponseMeta } from '../../types';
 import { t, TranslationKey } from '../../utils/i18n';
 
