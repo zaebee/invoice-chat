@@ -35,6 +35,7 @@ interface VehicleGroup {
     id: string;
     name: string;
     plate: string;
+    imageUrl?: string;
     bookings: ProcessedSession[];
     laneCount: number;
     rowHeight: number;
@@ -67,6 +68,9 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date, tick: numbe
         // 3. Process Each Group
         const groups: VehicleGroup[] = Object.entries(rawGroups).map(([key, groupSessions]) => {
             const [name, plate] = key.split('::');
+            
+            // Extract Image URL from any session in the group that has it
+            const imageUrl = groupSessions.find(s => s.reservationSummary?.vehicleImageUrl)?.reservationSummary?.vehicleImageUrl;
 
             // A. Calculate Raw Positions (Time -> Pixels)
             const items = groupSessions.map(session => {
@@ -163,7 +167,7 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date, tick: numbe
             const contentHeight = (laneCount * (BAR_HEIGHT + BAR_GAP)) - BAR_GAP;
             const rowHeight = Math.max(MIN_ROW_HEIGHT, contentHeight + (ROW_PADDING * 2));
 
-            return { id: key, name, plate, bookings, laneCount, rowHeight };
+            return { id: key, name, plate, imageUrl, bookings, laneCount, rowHeight };
         });
 
         // 4. Sort Groups Alphabetically
@@ -209,7 +213,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
     const [startDate, setStartDate] = useState(new Date());
     const [hoveredSession, setHoveredSession] = useState<string | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
     
     // Draggable Scroll Hook
     const { scrollContainerRef, onMouseDown, isDragging, hasMoved } = useDraggableScroll<HTMLDivElement>();
@@ -333,8 +337,12 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ lang }) => {
                                 {/* Sticky Vehicle Name (Left Column) (Z-40) */}
                                 <div className={`${sidebarWidthClass} shrink-0 p-4 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 sticky left-0 z-40 flex flex-col justify-center shadow-[4px_0_5px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out`}>
                                     <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center flex-col gap-1' : 'gap-3'}`}>
-                                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm" title={group.name}>
-                                            <Car size={20} />
+                                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 border border-slate-200/50 dark:border-slate-700 shadow-sm overflow-hidden" title={group.name}>
+                                            {group.imageUrl ? (
+                                                <img src={group.imageUrl} alt={group.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Car size={20} />
+                                            )}
                                         </div>
                                         
                                         {!isSidebarCollapsed ? (
