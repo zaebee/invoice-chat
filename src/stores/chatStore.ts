@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
@@ -352,7 +351,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         set(state => {
             const newSessions = [...state.sessions];
-            let hasChanges = false;
 
             updates.forEach(res => {
                 if (!res.success) return;
@@ -384,7 +382,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         exactDropoffDate: leaseData.exactDropoffDate
                     }
                 };
-                hasChanges = true;
                 dbService.saveSession(newSessions[idx]);
                 
                 // Update context if active
@@ -446,8 +443,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }));
 
             // 2. Fetch Data in Batches
+            interface ImportResult {
+                id: string;
+                success: boolean;
+                data?: LeaseData;
+                error?: any;
+            }
+            const results: ImportResult[] = [];
             const CONCURRENCY_LIMIT = 3;
-            const results = [];
             
             for (let i = 0; i < newIds.length; i += CONCURRENCY_LIMIT) {
                 const chunk = newIds.slice(i, i + CONCURRENCY_LIMIT);
