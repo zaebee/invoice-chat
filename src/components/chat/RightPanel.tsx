@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FileEdit, MapPin, User as UserIcon, Car, Bell, CalendarPlus, Check } from 'lucide-react';
+import { FileEdit, MapPin, User as UserIcon, Car, CalendarPlus, Check } from 'lucide-react';
 import { ChatSession, LeaseData, Language } from '../../types';
 import LeaseForm from '../forms/LeaseForm';
 import InputGroup from '../ui/InputGroup';
