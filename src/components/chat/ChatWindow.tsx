@@ -51,6 +51,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         rejectReservation, 
         collectReservation, 
         completeReservation,
+        restartReservation,
         aiSuggestion,
         clearAiSuggestion
     } = useChatStore();
@@ -352,7 +353,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         onReject={rejectReservation}
                         onCollect={collectReservation}
                         onComplete={completeReservation}
+                        onRestart={restartReservation}
                         leaseStatus={leaseData.status}
+                        noResponseMeta={leaseData.noResponseMeta}
                         lang={lang}
                         deadline={deadline}
                     />
