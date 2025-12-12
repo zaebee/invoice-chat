@@ -1,3 +1,4 @@
+
 import { Language } from '../types';
 
 export type TranslationKey =
@@ -196,6 +197,7 @@ export type TranslationKey =
   | 'rp_shown_on_contract'
   | 'rp_business_address'
   | 'rp_full_address'
+  | 'btn_add_calendar'
   // Statuses
   | 'status_collected'
   | 'status_completed'
@@ -421,6 +423,7 @@ const dictionary: any = {
     rp_shown_on_contract: 'Для договора',
     rp_business_address: 'Адрес офиса',
     rp_full_address: 'Полный адрес',
+    btn_add_calendar: 'Напоминание',
     status_collected: 'Выдано',
     status_completed: 'Завершено',
     status_overdue: 'Просрочено',
@@ -641,6 +644,7 @@ const dictionary: any = {
     rp_shown_on_contract: 'Shown on contract',
     rp_business_address: 'Business Address',
     rp_full_address: 'Full Address',
+    btn_add_calendar: 'Reminder',
     status_collected: 'Collected',
     status_completed: 'Completed',
     status_overdue: 'Overdue',
@@ -861,6 +865,7 @@ const dictionary: any = {
     rp_shown_on_contract: 'แสดงในสัญญา',
     rp_business_address: 'ที่อยู่ธุรกิจ',
     rp_full_address: 'ที่อยู่เต็ม',
+    btn_add_calendar: 'แจ้งเตือน',
     status_collected: 'รับรถแล้ว',
     status_completed: 'เสร็จสิ้น',
     status_overdue: 'เกินกำหนด',
@@ -1069,6 +1074,7 @@ const dictionary: any = {
     rp_shown_on_contract: 'Hiển thị trên hợp đồng',
     rp_business_address: 'Địa chỉ kinh doanh',
     rp_full_address: 'Địa chỉ đầy đủ',
+    btn_add_calendar: 'Lời nhắc',
     status_collected: 'Đã giao xe',
     status_completed: 'Hoàn tất',
     status_overdue: 'Quá hạn',
@@ -1277,6 +1283,7 @@ const dictionary: any = {
     rp_shown_on_contract: 'Ditampilkan di kontrak',
     rp_business_address: 'Alamat Bisnis',
     rp_full_address: 'Alamat Lengkap',
+    btn_add_calendar: 'Pengingat',
     status_collected: 'Diambil',
     status_completed: 'Selesai',
     status_overdue: 'Terlambat',

@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { FileEdit, MapPin, User as UserIcon, Car } from 'lucide-react';
+import { FileEdit, MapPin, User as UserIcon, Car, Bell, CalendarPlus, Check } from 'lucide-react';
 import { ChatSession, LeaseData, Language } from '../../types';
 import LeaseForm from '../forms/LeaseForm';
 import InputGroup from '../ui/InputGroup';
 import { t } from '../../utils/i18n';
 import { StatusBadge } from './StatusBadge';
 import { formatShortDate } from '../../utils/dateUtils';
+import { requestNotificationPermission, scheduleBrowserNotification, generateCalendarUrl } from '../../utils/notificationUtils';
 
 interface RightPanelProps {
     chat: ChatSession;
@@ -20,7 +21,57 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     chat, leaseData, lang, handlers, isOpen 
 }) => {
     const [sidebarTab, setSidebarTab] = useState<'profile' | 'details' | 'map'>('details');
+    const [reminderSet, setReminderSet] = useState<string | null>(null); // 'pickup' | 'dropoff'
     const { vehicle, status, pickup, dropoff, pricing } = leaseData;
+
+    const handleReminder = async (type: 'pickup' | 'dropoff') => {
+        const dateStr = type === 'pickup' ? pickup.date : dropoff.date;
+        const timeStr = type === 'pickup' ? pickup.time : dropoff.time;
+        
+        if (!dateStr) return;
+
+        // Construct full Date object
+        // Assuming timeStr format "HH:MM" or similar, fallback to noon if missing
+        let date = new Date(dateStr);
+        if (timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            if (!isNaN(hours)) {
+                date.setHours(hours, minutes || 0, 0, 0);
+            } else {
+                date.setHours(12, 0, 0, 0);
+            }
+        } else {
+            date.setHours(12, 0, 0, 0);
+        }
+
+        // 1. Browser Notification Logic
+        const granted = await requestNotificationPermission();
+        if (granted) {
+            // Schedule for 1 hour before
+            const remindTime = new Date(date.getTime() - 60 * 60 * 1000);
+            const title = `${type === 'pickup' ? 'Pickup' : 'Return'}: ${vehicle.name}`;
+            scheduleBrowserNotification(title, `Time to ${type} the vehicle.`, remindTime);
+        }
+
+        // 2. Calendar Event (ICS) - "Add to Calendar"
+        const eventTitle = `${type === 'pickup' ? 'Pickup' : 'Return'}: ${vehicle.name}`;
+        const eventDesc = `Reservation #${leaseData.reservationId}\nVehicle: ${vehicle.name} (${vehicle.plate})`;
+        const endDate = new Date(date.getTime() + 60 * 60 * 1000); // 1 hour duration
+        
+        const url = generateCalendarUrl(eventTitle, eventDesc, date, endDate);
+        
+        // Trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${type}_reminder.ics`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Visual Feedback
+        setReminderSet(type);
+        setTimeout(() => setReminderSet(null), 3000);
+    };
 
     return (
         <div className={`bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800 hidden xl:flex flex-col h-full shadow-lg z-20 transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? 'w-[360px] opacity-100' : 'w-0 opacity-0 border-none'}`}>
@@ -66,21 +117,41 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                                      </div>
                                 </div>
 
-                                {/* Dates Timeline */}
+                                {/* Dates Timeline with Reminders */}
                                 <div className="flex justify-between items-center text-xs mb-4 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                                    <div className="text-center min-w-[80px]">
-                                        <div className="text-slate-400 dark:text-slate-500 text-[9px] uppercase font-bold mb-1 tracking-wide">{t('grp_pickup', lang)}</div>
+                                    <div className="text-center min-w-[80px] group relative">
+                                        <div className="text-slate-400 dark:text-slate-500 text-[9px] uppercase font-bold mb-1 tracking-wide flex items-center justify-center gap-1">
+                                            {t('grp_pickup', lang)}
+                                            <button 
+                                                onClick={() => handleReminder('pickup')}
+                                                className={`p-0.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors ${reminderSet === 'pickup' ? 'text-green-500' : 'text-slate-300 hover:text-blue-500'}`}
+                                                title={t('btn_add_calendar', lang)}
+                                            >
+                                                {reminderSet === 'pickup' ? <Check size={10} /> : <CalendarPlus size={10} />}
+                                            </button>
+                                        </div>
                                         <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">{formatShortDate(pickup.date, lang)}</div>
                                         <div className="text-[10px] text-slate-400 font-medium">{pickup.time}</div>
                                     </div>
+                                    
                                     <div className="text-slate-300 dark:text-slate-600 flex flex-col items-center">
                                         <span className="text-[10px] font-bold text-slate-400 mb-1">{leaseData.pricing.daysRegular + leaseData.pricing.daysSeason}d</span>
                                         <div className="w-16 h-0.5 bg-slate-200 dark:bg-slate-700 rounded-full relative">
                                             <div className="absolute right-0 -top-1 w-2 h-2 border-t-2 border-r-2 border-slate-200 dark:border-slate-700 rotate-45"></div>
                                         </div>
                                     </div>
+                                    
                                     <div className="text-center min-w-[80px]">
-                                        <div className="text-slate-400 dark:text-slate-500 text-[9px] uppercase font-bold mb-1 tracking-wide">{t('grp_return', lang)}</div>
+                                        <div className="text-slate-400 dark:text-slate-500 text-[9px] uppercase font-bold mb-1 tracking-wide flex items-center justify-center gap-1">
+                                            {t('grp_return', lang)}
+                                            <button 
+                                                onClick={() => handleReminder('dropoff')}
+                                                className={`p-0.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors ${reminderSet === 'dropoff' ? 'text-green-500' : 'text-slate-300 hover:text-blue-500'}`}
+                                                title={t('btn_add_calendar', lang)}
+                                            >
+                                                {reminderSet === 'dropoff' ? <Check size={10} /> : <CalendarPlus size={10} />}
+                                            </button>
+                                        </div>
                                         <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">{formatShortDate(dropoff.date, lang)}</div>
                                         <div className="text-[10px] text-slate-400 font-medium">{dropoff.time}</div>
                                     </div>
