@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { Download, Wand2, Loader2, RotateCcw, FileText, Car, Share2, MessageCircle, CalendarDays } from 'lucide-react';
-import { Link, useParams, useLocation } from 'react-router-dom';
+import { Link, useParams, useLocation, useSearchParams } from 'react-router-dom';
 
 import InvoicePreview from '../components/InvoicePreview';
 import LeasePreview from '../components/LeasePreview';
@@ -31,6 +31,7 @@ type DocType = 'invoice' | 'lease' | 'chat' | 'schedule';
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [docType, setDocType] = useState<DocType>('chat');
   
   // Use persistent language hook
@@ -51,6 +52,20 @@ export default function EditorPage() {
   const lease = useLease();
   const ai = useAiAssistant(lang);
   const chatStore = useChatStore();
+
+  // Handle Workspace Import
+  useEffect(() => {
+      const workspace = searchParams.get('workspace');
+      if (workspace) {
+          chatStore.importWorkspace(workspace).then(() => {
+              // Clear param from URL
+              setSearchParams(prev => {
+                  prev.delete('workspace');
+                  return prev;
+              });
+          });
+      }
+  }, [searchParams, chatStore, setSearchParams]);
 
   // Route Handling
   useEffect(() => {

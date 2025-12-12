@@ -32,6 +32,7 @@ interface ChatState {
     createLocalSession: (customId: string) => Promise<void>;
     loadChatSession: (reservationId: string) => Promise<void>;
     refreshSessions: () => Promise<void>; // New Action
+    importWorkspace: (encodedIds: string) => Promise<void>; // New Action
     analyzeIntent: () => Promise<void>;
     setActiveSession: (id: string) => void;
     sendMessage: (text: string, tags?: string[], actions?: NtfyAction[]) => Promise<void>;
@@ -383,6 +384,66 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ isLoading: false });
         // Reconnect SSE to ensure we are listening to all topics (e.g. if new ones were added externally, though less likely here)
         get().connectGlobalListener();
+    },
+
+    importWorkspace: async (encodedIds: string) => {
+        try {
+            const decoded = atob(encodedIds);
+            const ids = decoded.split(',').filter(Boolean);
+            if (ids.length === 0) return;
+
+            set({ isLoading: true });
+            const { sessions } = get();
+            const existingIds = new Set(sessions.map(s => s.id));
+            const newIds = ids.filter(id => !existingIds.has(id));
+            
+            if (newIds.length === 0) {
+                set({ isLoading: false });
+                return;
+            }
+
+            const newSessions: ChatSession[] = [];
+            const today = new Date().toISOString().split('T')[0];
+
+            for (const id of newIds) {
+                const session: ChatSession = {
+                    id: id,
+                    user: {
+                        id: 'loading',
+                        name: 'Loading...',
+                        role: 'Renter',
+                        status: 'offline',
+                        avatar: ''
+                    },
+                    messages: [],
+                    lastMessage: 'Imported',
+                    lastMessageTime: Date.now(),
+                    unreadCount: 0,
+                    reservationSummary: {
+                        vehicleName: 'Loading...',
+                        plateNumber: '...',
+                        status: 'pending',
+                        price: 0,
+                        currency: 'THB',
+                        pickupDate: today,
+                        dropoffDate: today
+                    }
+                };
+                newSessions.push(session);
+                await dbService.saveSession(session);
+            }
+
+            set(state => ({
+                sessions: [...newSessions, ...state.sessions]
+            }));
+            
+            // Trigger refresh to fetch real data
+            await get().refreshSessions();
+            
+        } catch (e) {
+            console.error("Import failed", e);
+            set({ isLoading: false });
+        }
     },
 
     loadChatSession: async (reservationId: string) => {

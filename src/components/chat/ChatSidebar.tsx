@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, Plus, RefreshCw } from 'lucide-react';
+import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, Plus, RefreshCw, Share2, Check } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import { SwipeableRow } from '../ui/SwipeableRow';
@@ -25,6 +25,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const [filterStatus, setFilterStatus] = useState<LeaseStatus | 'all'>('all');
     const [sortBy, setSortBy] = useState<'date' | 'name'>('date');
     const [showFilters, setShowFilters] = useState(false);
+    const [copied, setCopied] = useState(false);
     
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
@@ -92,6 +93,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         }
     };
 
+    const handleShareWorkspace = () => {
+        const activeIds = sessions.filter(s => !s.isArchived).map(s => s.id);
+        if (activeIds.length === 0) return;
+        
+        const payload = btoa(activeIds.join(','));
+        const url = `${window.location.origin}${window.location.pathname}#/?workspace=${payload}`;
+        
+        navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
     const filteredSessions = useMemo(() => {
         let result = sessions.filter((s: ChatSession) => {
             const matchesSearch = !searchQuery || s.user.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.includes(searchQuery);
@@ -139,6 +153,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                             />
                         </div>
                     </form>
+                    <button 
+                        onClick={handleShareWorkspace}
+                        className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                        title={t('btn_share_workspace', lang)}
+                    >
+                        {copied ? <Check size={18} className="text-green-500" /> : <Share2 size={18} />}
+                    </button>
                     <button 
                         onClick={() => refreshSessions()}
                         disabled={isLoading}
