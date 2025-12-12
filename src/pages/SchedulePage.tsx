@@ -19,6 +19,8 @@ const ROW_PADDING = 10;
 const MIN_ROW_HEIGHT = 70;
 const DAYS_TO_SHOW = 21;
 const START_OFFSET = 2; // Days before today
+// Buffer to ensure visual separation between bookings (e.g. 15 mins)
+const TIME_BUFFER_MS = 15 * 60 * 1000; 
 
 // --- TYPES ---
 interface LayoutMetrics {
@@ -130,31 +132,41 @@ const useTimelineLayout = (sessions: ChatSession[], startDate: Date, tick: numbe
             // B. Sort for Packing (Earliest start)
             items.sort((a, b) => a.startMs - b.startMs);
 
-            // C. "Tetris" Packing Algorithm
-            const lanes: number[] = []; // Stores the end time (ms) of the last block in each lane
+            // C. "Tetris" Packing Algorithm: Best-Fit (Minimize Gap)
+            // We store the end timestamp of the last item in each lane
+            const lanes: number[] = []; 
             
             const bookings: ProcessedSession[] = items.map(item => {
-                let assignedLane = -1;
+                let bestLane = -1;
+                let minGap = Number.MAX_SAFE_INTEGER;
 
-                // Find the first lane where this item fits (with 0 buffer for visual gap logic handled by width)
+                // Check all existing lanes to find the BEST fit (smallest positive gap)
                 for (let i = 0; i < lanes.length; i++) {
-                    if (lanes[i] <= item.startMs) {
-                        assignedLane = i;
-                        lanes[i] = item.endMs;
-                        break;
+                    // Check if item starts after the previous one ended (plus a small buffer)
+                    if (item.startMs >= (lanes[i] + TIME_BUFFER_MS)) {
+                        const gap = item.startMs - lanes[i];
+                        
+                        // We want the smallest gap possible to pack tightly
+                        if (gap < minGap) {
+                            minGap = gap;
+                            bestLane = i;
+                        }
                     }
                 }
 
-                // If no fit, create a new lane
-                if (assignedLane === -1) {
-                    assignedLane = lanes.length;
+                // If no fit found in existing lanes, create a new one
+                if (bestLane === -1) {
+                    bestLane = lanes.length;
                     lanes.push(item.endMs);
+                } else {
+                    // Update the chosen lane with the new end time
+                    lanes[bestLane] = item.endMs;
                 }
 
                 return {
                     ...item.session,
                     layout: {
-                        lane: assignedLane,
+                        lane: bestLane,
                         left: item.left,
                         width: Math.max(item.width, 10) // Minimum 10px width
                     }
