@@ -1,8 +1,6 @@
 
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, Plus } from 'lucide-react';
+import { Search, Sparkles, Loader2, Car, MoreVertical, Archive, Trash2, Mail, CheckCircle, ListFilter, ArrowUpDown, Plus, RefreshCw } from 'lucide-react';
 import { ChatSession, Language, LeaseStatus } from '../../types';
 import { useVirtualList } from '../../hooks/useVirtualList';
 import { SwipeableRow } from '../ui/SwipeableRow';
@@ -31,7 +29,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    const { archiveSession, deleteSession, markAsRead, markAsUnread, createLocalSession } = useChatStore();
+    const { archiveSession, deleteSession, markAsRead, markAsUnread, createLocalSession, refreshSessions } = useChatStore();
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -141,6 +139,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                             />
                         </div>
                     </form>
+                    <button 
+                        onClick={() => refreshSessions()}
+                        disabled={isLoading}
+                        className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        title="Sync with Server"
+                    >
+                        <RefreshCw size={18} className={isLoading ? "animate-spin text-blue-500" : ""} />
+                    </button>
                     <button 
                         onClick={() => setShowFilters(!showFilters)}
                         className={`p-2.5 rounded-xl border transition-all ${

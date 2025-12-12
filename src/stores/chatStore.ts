@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { ChatSession, ChatMessage, LeaseData, INITIAL_LEASE, NtfyAction } from '../types';
 import { fetchReservationHistory, fetchNtfyMessages, sendNtfyMessage, sendNtfyImage, loadLeaseData, getGlobalChatSseUrl } from '../services/ownimaApi';
@@ -30,6 +31,7 @@ interface ChatState {
     connectGlobalListener: () => void; // New Action
     createLocalSession: (customId: string) => Promise<void>;
     loadChatSession: (reservationId: string) => Promise<void>;
+    refreshSessions: () => Promise<void>; // New Action
     analyzeIntent: () => Promise<void>;
     setActiveSession: (id: string) => void;
     sendMessage: (text: string, tags?: string[], actions?: NtfyAction[]) => Promise<void>;
@@ -317,6 +319,69 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
 
         // Reconnect global listener to include new session
+        get().connectGlobalListener();
+    },
+
+    refreshSessions: async () => {
+        set({ isLoading: true });
+        const { sessions } = get();
+        const activeSessions = sessions.filter(s => !s.isArchived);
+        
+        console.debug(`Refreshing ${activeSessions.length} active sessions...`);
+
+        // Parallel fetch with Promise.allSettled to avoid failing everything on one error
+        await Promise.allSettled(activeSessions.map(async (session) => {
+            try {
+                // We only need the lease data to update the summary (status, price, vehicle)
+                // We do NOT fetch full history/messages to save bandwidth
+                const leaseData = await loadLeaseData(session.id); 
+                
+                set(state => {
+                    const idx = state.sessions.findIndex(s => s.id === session.id);
+                    if (idx === -1) return {};
+                    
+                    const existingSession = state.sessions[idx];
+                    
+                    // Basic check to avoid unnecessary updates if data hasn't changed could go here
+                    // For now, we update to ensure freshness
+                    
+                    const updatedSession = { 
+                        ...existingSession,
+                        reservationSummary: {
+                            vehicleName: leaseData.vehicle.name,
+                            plateNumber: leaseData.vehicle.plate,
+                            vehicleImageUrl: leaseData.vehicle.imageUrl,
+                            status: leaseData.status || 'pending',
+                            price: leaseData.pricing.total,
+                            currency: leaseData.pricing.currency || 'THB',
+                            deadline: leaseData.deadline,
+                            pickupDate: leaseData.pickup.date,
+                            dropoffDate: leaseData.dropoff.date,
+                            exactPickupDate: leaseData.exactPickupDate,
+                            exactDropoffDate: leaseData.exactDropoffDate
+                        }
+                    };
+                    
+                    const newSessions = [...state.sessions];
+                    newSessions[idx] = updatedSession;
+                    
+                    // Persist quietly
+                    dbService.saveSession(updatedSession);
+                    
+                    // If this session is currently active, also update the lease context
+                    if (state.activeSessionId === session.id) {
+                        return { sessions: newSessions, leaseContext: leaseData };
+                    }
+                    
+                    return { sessions: newSessions };
+                });
+            } catch (e) {
+                console.warn(`Failed to refresh session ${session.id}`, e);
+            }
+        }));
+        
+        set({ isLoading: false });
+        // Reconnect SSE to ensure we are listening to all topics (e.g. if new ones were added externally, though less likely here)
         get().connectGlobalListener();
     },
 
