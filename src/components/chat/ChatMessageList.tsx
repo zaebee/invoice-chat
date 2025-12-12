@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { CheckCheck, Check, ThumbsUp, ThumbsDown, Hourglass, Key, Flag, AlertCircle, ExternalLink, Loader2, Radio, X, RefreshCcw, MousePointerClick } from 'lucide-react';
 import { ChatMessage, ChatUser, Language, LeaseStatus, NtfyAction, NoResponseMeta } from '../../types';
 import { t, TranslationKey } from '../../utils/i18n';
+import { StatusBadge } from './StatusBadge';
 
 interface ChatMessageListProps {
     messages: ChatMessage[];
@@ -263,6 +264,13 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                 <div className="flex items-start gap-3 w-full justify-center">
                                     <div className="w-full flex flex-col items-center">
                                         <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mb-1">{formatTime(msg.timestamp)}</span>
+                                        
+                                        {msg.metadata?.status && (
+                                            <div className="mb-1 scale-90 origin-center">
+                                                <StatusBadge status={msg.metadata.status} lang={lang} />
+                                            </div>
+                                        )}
+
                                         {msg.text && <p className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 italic text-center max-w-xs leading-snug whitespace-pre-wrap">{msg.text}</p>}
                                         
                                         {renderActions(msg.metadata?.status)}
