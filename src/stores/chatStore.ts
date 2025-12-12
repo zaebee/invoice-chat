@@ -330,59 +330,72 @@ export const useChatStore = create<ChatState>((set, get) => ({
         
         console.debug(`Refreshing ${activeSessions.length} active sessions...`);
 
-        // Parallel fetch with Promise.allSettled to avoid failing everything on one error
-        await Promise.allSettled(activeSessions.map(async (session) => {
-            try {
-                // We only need the lease data to update the summary (status, price, vehicle)
-                // We do NOT fetch full history/messages to save bandwidth
-                const leaseData = await loadLeaseData(session.id); 
+        const CONCURRENCY_LIMIT = 5;
+        const updates: any[] = [];
+
+        // Process in chunks to prevent network bottleneck
+        for (let i = 0; i < activeSessions.length; i += CONCURRENCY_LIMIT) {
+            const chunk = activeSessions.slice(i, i + CONCURRENCY_LIMIT);
+            const promises = chunk.map(async (session) => {
+                try {
+                    const leaseData = await loadLeaseData(session.id);
+                    return { id: session.id, success: true, data: leaseData };
+                } catch (e) {
+                    console.warn(`Failed to refresh session ${session.id}`, e);
+                    return { id: session.id, success: false };
+                }
+            });
+            
+            const results = await Promise.all(promises);
+            updates.push(...results);
+        }
+
+        set(state => {
+            const newSessions = [...state.sessions];
+            let hasChanges = false;
+
+            updates.forEach(res => {
+                if (!res.success) return;
                 
-                set(state => {
-                    const idx = state.sessions.findIndex(s => s.id === session.id);
-                    if (idx === -1) return {};
-                    
-                    const existingSession = state.sessions[idx];
-                    
-                    // Basic check to avoid unnecessary updates if data hasn't changed could go here
-                    // For now, we update to ensure freshness
-                    
-                    const updatedSession = { 
-                        ...existingSession,
-                        reservationSummary: {
-                            vehicleName: leaseData.vehicle.name,
-                            plateNumber: leaseData.vehicle.plate,
-                            vehicleImageUrl: leaseData.vehicle.imageUrl,
-                            status: leaseData.status || 'pending',
-                            price: leaseData.pricing.total,
-                            currency: leaseData.pricing.currency || 'THB',
-                            deadline: leaseData.deadline,
-                            pickupDate: leaseData.pickup.date,
-                            dropoffDate: leaseData.dropoff.date,
-                            exactPickupDate: leaseData.exactPickupDate,
-                            exactDropoffDate: leaseData.exactDropoffDate
-                        }
-                    };
-                    
-                    const newSessions = [...state.sessions];
-                    newSessions[idx] = updatedSession;
-                    
-                    // Persist quietly
-                    dbService.saveSession(updatedSession);
-                    
-                    // If this session is currently active, also update the lease context
-                    if (state.activeSessionId === session.id) {
-                        return { sessions: newSessions, leaseContext: leaseData };
+                const idx = newSessions.findIndex(s => s.id === res.id);
+                if (idx === -1) return;
+
+                const leaseData = res.data;
+                
+                // Logic to update
+                newSessions[idx] = {
+                    ...newSessions[idx],
+                    user: {
+                        ...newSessions[idx].user,
+                        name: leaseData.renter.surname || newSessions[idx].user.name,
+                        avatar: leaseData.renter.avatar || newSessions[idx].user.avatar
+                    },
+                    reservationSummary: {
+                        vehicleName: leaseData.vehicle.name,
+                        plateNumber: leaseData.vehicle.plate,
+                        vehicleImageUrl: leaseData.vehicle.imageUrl,
+                        status: leaseData.status || 'pending',
+                        price: leaseData.pricing.total,
+                        currency: leaseData.pricing.currency || 'THB',
+                        deadline: leaseData.deadline,
+                        pickupDate: leaseData.pickup.date,
+                        dropoffDate: leaseData.dropoff.date,
+                        exactPickupDate: leaseData.exactPickupDate,
+                        exactDropoffDate: leaseData.exactDropoffDate
                     }
-                    
-                    return { sessions: newSessions };
-                });
-            } catch (e) {
-                console.warn(`Failed to refresh session ${session.id}`, e);
-            }
-        }));
+                };
+                hasChanges = true;
+                dbService.saveSession(newSessions[idx]);
+                
+                // Update context if active
+                if (state.activeSessionId === res.id && state.leaseContext) {
+                     // Optionally update active context
+                }
+            });
+
+            return { sessions: newSessions, isLoading: false };
+        });
         
-        set({ isLoading: false });
-        // Reconnect SSE to ensure we are listening to all topics (e.g. if new ones were added externally, though less likely here)
         get().connectGlobalListener();
     },
 
@@ -402,43 +415,116 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 return;
             }
 
-            const newSessions: ChatSession[] = [];
+            // 1. Create Placeholders immediately for UI feedback
             const today = new Date().toISOString().split('T')[0];
-
-            for (const id of newIds) {
-                const session: ChatSession = {
-                    id: id,
-                    user: {
-                        id: 'loading',
-                        name: 'Loading...',
-                        role: 'Renter',
-                        status: 'offline',
-                        avatar: ''
-                    },
-                    messages: [],
-                    lastMessage: 'Imported',
-                    lastMessageTime: Date.now(),
-                    unreadCount: 0,
-                    reservationSummary: {
-                        vehicleName: 'Loading...',
-                        plateNumber: '...',
-                        status: 'pending',
-                        price: 0,
-                        currency: 'THB',
-                        pickupDate: today,
-                        dropoffDate: today
-                    }
-                };
-                newSessions.push(session);
-                await dbService.saveSession(session);
-            }
+            const placeholderSessions: ChatSession[] = newIds.map(id => ({
+                id: id,
+                user: {
+                    id: 'loading',
+                    name: 'Loading...',
+                    role: 'Renter',
+                    status: 'offline',
+                    avatar: ''
+                },
+                messages: [],
+                lastMessage: 'Importing...',
+                lastMessageTime: Date.now(),
+                unreadCount: 0,
+                reservationSummary: {
+                    vehicleName: 'Loading...',
+                    plateNumber: '...',
+                    status: 'pending',
+                    price: 0,
+                    currency: 'THB',
+                    pickupDate: today,
+                    dropoffDate: today
+                }
+            }));
 
             set(state => ({
-                sessions: [...newSessions, ...state.sessions]
+                sessions: [...placeholderSessions, ...state.sessions]
             }));
+
+            // 2. Fetch Data in Batches
+            const CONCURRENCY_LIMIT = 3;
+            const results = [];
             
-            // Trigger refresh to fetch real data
-            await get().refreshSessions();
+            for (let i = 0; i < newIds.length; i += CONCURRENCY_LIMIT) {
+                const chunk = newIds.slice(i, i + CONCURRENCY_LIMIT);
+                const chunkPromises = chunk.map(async (id) => {
+                    try {
+                        const leaseData = await loadLeaseData(id);
+                        return { id, success: true, data: leaseData };
+                    } catch (e: any) {
+                        console.error(`Failed to import session ${id}`, e);
+                        return { id, success: false, error: e };
+                    }
+                });
+                results.push(...await Promise.all(chunkPromises));
+            }
+
+            // 3. Update Store with Results
+            set(state => {
+                let updatedSessions = [...state.sessions];
+                
+                results.forEach(res => {
+                    const idx = updatedSessions.findIndex(s => s.id === res.id);
+                    if (idx === -1) return;
+
+                    if (res.success && res.data) {
+                        const leaseData = res.data;
+                        updatedSessions[idx] = {
+                            ...updatedSessions[idx],
+                            user: {
+                                ...updatedSessions[idx].user,
+                                id: leaseData.renter.surname || 'Renter',
+                                name: leaseData.renter.surname || 'Renter',
+                                contact: leaseData.renter.contact,
+                                avatar: leaseData.renter.avatar || ''
+                            },
+                            reservationSummary: {
+                                vehicleName: leaseData.vehicle.name,
+                                plateNumber: leaseData.vehicle.plate,
+                                vehicleImageUrl: leaseData.vehicle.imageUrl,
+                                status: leaseData.status || 'pending',
+                                price: leaseData.pricing.total,
+                                currency: leaseData.pricing.currency || 'THB',
+                                deadline: leaseData.deadline,
+                                pickupDate: leaseData.pickup.date,
+                                dropoffDate: leaseData.dropoff.date,
+                                exactPickupDate: leaseData.exactPickupDate,
+                                exactDropoffDate: leaseData.exactDropoffDate
+                            },
+                            lastMessage: 'Imported successfully'
+                        };
+                    } else {
+                        // Handle failure (e.g. 404 or Auth error)
+                        const errorMsg = res.error?.message || 'Error';
+                        const isNotFound = errorMsg.includes('not found') || res.error?.status === 404;
+                        
+                        updatedSessions[idx] = {
+                            ...updatedSessions[idx],
+                            user: { ...updatedSessions[idx].user, name: isNotFound ? 'Not Found' : 'Sync Error' },
+                            lastMessage: isNotFound ? 'Reservation ID invalid' : 'Failed to load',
+                            reservationSummary: {
+                                ...updatedSessions[idx].reservationSummary!,
+                                status: 'cancelled',
+                                vehicleName: 'Unknown'
+                            }
+                        };
+                    }
+                });
+                
+                return { sessions: updatedSessions, isLoading: false };
+            });
+            
+            // 4. Persist new sessions
+            const finalSessions = get().sessions;
+            finalSessions.forEach(s => {
+                if (newIds.includes(s.id)) dbService.saveSession(s);
+            });
+
+            get().connectGlobalListener();
             
         } catch (e) {
             console.error("Import failed", e);
