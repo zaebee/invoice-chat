@@ -24,7 +24,9 @@ export const useLease = () => {
   useEffect(() => {
     const generateQr = async () => {
         try {
-            const url = `https://stage.ownima.com/qr/${data.reservationId}`;
+            // @ts-ignore
+            const baseUrl = process.env.OWNIMA_BASE_URL || 'https://stage.ownima.com';
+            const url = `${baseUrl}/qr/${data.reservationId}`;
             const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 200 });
             setData(prev => {
                 if (prev.qrCodeUrl === dataUrl) return prev;
@@ -64,7 +66,7 @@ export const useLease = () => {
     setData(prev => ({ ...prev, extraOptions: newOpts }));
   };
   
-  const removeExtraOption = (index: number) => {
+  const handleRemoveExtraOption = (index: number) => {
       setData(prev => ({
           ...prev,
           extraOptions: prev.extraOptions.filter((_, i) => i !== index)
@@ -90,7 +92,7 @@ export const useLease = () => {
       updateLease,
       addExtraOption,
       updateExtraOption,
-      removeExtraOption,
+      removeExtraOption: handleRemoveExtraOption,
       loadFromApi
   };
 };

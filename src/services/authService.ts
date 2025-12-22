@@ -1,5 +1,5 @@
 // @ts-ignore
-const BASE_RESERVATION_URL = process.env.OWNIMA_API_URL || 'https://stage.ownima.com/api/v1/reservation';
+const BASE_RESERVATION_URL = process.env.OWNIMA_API_URL || `${process.env.OWNIMA_BASE_URL || 'https://stage.ownima.com'}/api/v1/reservation`;
 
 // Derive Auth URL from the reservation URL (assuming standard /api/v1 structure)
 // e.g., https://stage.ownima.com/api/v1/reservation -> https://stage.ownima.com/api/v1/auth/access-token

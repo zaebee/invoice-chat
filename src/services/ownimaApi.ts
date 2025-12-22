@@ -1,6 +1,3 @@
-
-
-
 import { LeaseData, INITIAL_LEASE, LeaseStatus, NtfyAction } from "../types";
 import { authService } from "./authService";
 import QRCode from 'qrcode';
@@ -12,8 +9,9 @@ const API_V1_ROOT = BASE_RESERVATION_URL.replace(/\/reservation\/?$/, '');
 
 const INVOICE_ENDPOINT = `${API_V1_ROOT}/finance/invoice`;
 const OWNER_PROFILE_ENDPOINT = `${API_V1_ROOT}/rider/owner`;
-const CHAT_BASE_URL = 'https://stage.ownima.com'; // Dedicated Chat/Ntfy domain
-const ASSET_BASE_URL = 'https://stage.ownima.com';
+// @ts-ignore
+const CHAT_BASE_URL = process.env.OWNIMA_BASE_URL || 'https://stage.ownima.com'; 
+const ASSET_BASE_URL = CHAT_BASE_URL;
 
 interface OwnerProfile {
     id: string;
@@ -307,7 +305,7 @@ export const loadLeaseData = async (id: string, signal?: AbortSignal): Promise<L
     // 2. Generate QR Code
     let qrCodeUrl = undefined;
     try {
-        const url = `https://stage.ownima.com/qr/${id}`;
+        const url = `${CHAT_BASE_URL}/qr/${id}`;
         qrCodeUrl = await QRCode.toDataURL(url, { margin: 1, width: 200 });
     } catch (e) {
         console.error("QR Error", e);
